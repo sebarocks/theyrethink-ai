@@ -1,0 +1,89 @@
+[project]
+name = "theyrethink-backend"
+version = "0.1.0"
+description = "Backend de theyrethink-ai: API FastAPI y núcleo agéntico sobre LangGraph"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic-settings",
+    "sqlmodel",
+    "alembic",
+    "asyncpg",
+    "langchain",
+    "langgraph",
+    "langchain-openai",
+    "langgraph-checkpoint-postgres",
+]
+
+# El pin exacto de versiones vive en uv.lock, que se versiona. Ver AGENTS.md §2.
+[dependency-groups]
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+    "import-linter",
+]
+
+# Aplicación, no librería: uv gestiona el entorno pero no instala el proyecto como paquete.
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "ASYNC", # flake8-async: disciplina async (riesgo declarado en la propuesta §13)
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# ---------------------------------------------------------------------------------------
+# Contratos de arquitectura, verificados con `uv run lint-imports` en CI (ver AGENTS.md §3).
+#
+# NOTA: si añades un paquete de primer nivel bajo `app/`, agrégalo a `source_modules` del
+# primer contrato; de lo contrario ese paquete quedaría sin cubrir.
+# ---------------------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["app"]
+# Necesario para que un contrato `forbidden` pueda nombrar paquetes de terceros.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "LangGraph y LangChain solo dentro de app.agent"
+type = "forbidden"
+source_modules = [
+    "app.api",
+    "app.models",
+    "app.schemas",
+    "app.security",
+    "app.seed",
+    "app.config",
+    "app.db",
+    "app.main",
+]
+forbidden_modules = [
+    "langgraph",
+    "langchain",
+    "langchain_core",
+    "langchain_openai",
+]
+
+[[tool.importlinter.contracts]]
+name = "El nucleo del agente no conoce la capa de API"
+type = "layers"
+layers = [
+    "app.api",
+    "app.agent",
+]

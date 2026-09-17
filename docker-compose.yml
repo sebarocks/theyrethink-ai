@@ -1,0 +1,36 @@
+# Entorno de desarrollo: Postgres es la única pieza de infraestructura.
+# La cola de consolidación de memoria vive dentro de Postgres (D14), así que no hay
+# servicios extra que operar.
+
+name: theyrethink-ai
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: theyrethink
+      POSTGRES_PASSWORD: theyrethink
+      POSTGRES_DB: theyrethink
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U theyrethink -d theyrethink"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Opcional: `docker compose --profile tools up -d adminer`
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  pgdata:

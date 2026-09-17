@@ -1,0 +1,29 @@
+# Entorno Python (uv)
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+
+# Entorno Deno / frontend
+node_modules/
+.svelte-kit/
+dist/
+build/
+.tmp/
+
+# Secretos y configuración local
+.env
+.env.local
+*.local
+
+# Datos locales
+.pgdata/
+
+# Editores y sistema
+.idea/
+.vscode/
+.DS_Store
+
+# Nota: uv.lock y deno.lock SÍ se versionan (ver AGENTS.md §2).

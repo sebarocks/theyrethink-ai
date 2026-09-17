@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (uv, ruff, import-linter, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: theyrethink
+          POSTGRES_PASSWORD: theyrethink
+          POSTGRES_DB: theyrethink
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U theyrethink -d theyrethink"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ENVIRONMENT: test
+      SECRET_KEY: ci-secret-key-with-at-least-32-characters
+      DATABASE_URL: postgresql+asyncpg://theyrethink:theyrethink@localhost:5432/theyrethink
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sincronizar el entorno
+        run: uv sync --locked
+
+      - name: Formato
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Contratos de import
+        run: uv run lint-imports
+
+      - name: Tests
+        run: uv run pytest
+
+  # El job de frontend se activa en la Fase 4, cuando exista el andamiaje de SvelteKit.
+  # Regla del proyecto (AGENTS.md §2): NUNCA `actions/setup-node`; el frontend usa Deno.
+  #
+  # frontend:
+  #   name: Frontend (Deno)
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: frontend
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: denoland/setup-deno@v2
+  #       with:
+  #         deno-version: v2.x
+  #     - run: deno install --frozen
+  #     - run: deno fmt --check
+  #     - run: deno lint
+  #     - run: deno task check
+  #     - run: deno task build
