@@ -38,7 +38,10 @@ Antes de ejecutar, copia `backend/.env.example` a `backend/.env` y **genera una
 `SECRET_KEY` propia** (`openssl rand -hex 32`). No hay valor por defecto: la aplicación no
 arranca sin una.
 
+Para que `make seed` cree la primera cuenta `admin` (D13), define `ADMIN_PASSWORD` en el
+entorno; sin ella, no se siembra ninguna cuenta y el seed lo advierte.
+
 ## Estado
 
-Fase 0 (andamiaje) en curso. El avance por fases está en
+Fases 0 (andamiaje) y 1 (dominio y datos) cerradas. El avance por fases está en
 [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md) §0.

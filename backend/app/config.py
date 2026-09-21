@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     llm_api_key: str | None = None
     llm_model: str | None = None
 
+    # Primer administrador (D13). Sin contrasena por defecto: si `admin_password` no esta
+    # definida, el seed omite la creacion y avisa (AGENTS.md §5).
+    admin_username: str = "admin"
+    admin_email: str | None = None
+    admin_password: str | None = None
+
     @model_validator(mode="after")
     def _forbid_debug_in_production(self) -> "Settings":
         if self.environment == "production" and self.debug:

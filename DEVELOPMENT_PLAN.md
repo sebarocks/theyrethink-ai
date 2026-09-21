@@ -30,7 +30,7 @@
 | Fase | Nombre | Estado | DoD cumplido |
 |---|---|---|---|
 | 0 | Andamiaje | ✅ cerrada | ✅ |
-| 1 | Dominio y datos | ⬜ pendiente | ⬜ |
+| 1 | Dominio y datos | ✅ cerrada | ✅ |
 | 2 | Núcleo del agente | ⬜ pendiente | ⬜ |
 | 3 | API | ⬜ pendiente | ⬜ |
 | 4 | Frontend | ⬜ pendiente | ⬜ |
@@ -243,8 +243,9 @@ decisiones base cerradas.
 | Spikes | conclusión escrita en `docs/spikes/` |
 | CI | workflow escrito; sus comandos pasan en local (no hay remoto aún para ejecutarlo) |
 
-Pendiente de la fase: `git init` y el primer commit — no se hacen sin permiso explícito
-(`AGENTS.md` §7).
+Pendiente de la fase: ~~`git init` y el primer commit~~ — resuelto: el repo ya tiene el
+commit inicial (`Inicial`, rama `master`). Verificado en la Fase 1 (2026-09-21):
+`.python-version` (Python 3.13) quedó añadido, que faltaba en el árbol.
 
 ---
 
@@ -254,30 +255,47 @@ Pendiente de la fase: `git init` y el primer commit — no se hacen sin permiso 
 
 **Gate de entrada:** D11 cerrada; S2 concluido.
 
-**Tareas**
+**Tareas** — completadas el 2026-09-21.
 
-- [ ] Modelos SQLModel: `users`, `roles`, `agents`, `knowledge_sources`,
-      `agent_sources`, `threads`.
-- [ ] `users` según D6: `username` UNIQUE, `email` UNIQUE, `password_hash`, `role`
-      (`admin` | `usuario`), `created_at`. Sin tabla de usuarios finales ni identidades por
-      canal.
-- [ ] Constraints e índices explícitos; timestamps en UTC; `ON DELETE` declarado.
-      El esquema **no** tiene columnas `memoria` ni `conocimiento` en `agents`.
-- [ ] Alembic async + migración `0001`; exclusión explícita del autogenerate de las tablas de
-      la librería, ya conocidas por el spike S2: `checkpoints`, `checkpoint_blobs`,
-      `checkpoint_writes`, `checkpoint_migrations`, `store`, `store_migrations`.
-- [ ] Orden de arranque documentado: `setup()` de la librería primero, migraciones de dominio
-      después (§4, gap 6).
-- [ ] `app/seed/`: port de `identidades.py` (roles de sistema + prompts), `seed.py`
-      (agentes/personajes), `empresa.py` (fuentes). **Idempotente** (upsert por clave/nombre).
-- [ ] Usuario `admin` sembrado (D13: el resto de las cuentas nacen por registro público).
-- [ ] Artefacto **golden**: exportar el estado canónico (roles, agentes, fuentes) a JSON
-      versionado. Será el oráculo de la Fase 5.
-- [ ] Tests de modelos + test de idempotencia de seed (dos corridas ⇒ mismo estado).
-- [ ] Estrategia de BD de test (D11) implementada y usada por los tests.
+- [x] Modelos SQLModel en `app/models/domain.py`: `users`, `roles`, `agents`,
+      `knowledge_sources`, `agent_sources`, `threads`.
+- [x] `users` según D6: `username` UNIQUE, `email` UNIQUE, `password_hash`, `role`
+      (`admin` | `usuario`, con `CHECK`), `created_at`. Sin tabla de usuarios finales ni
+      identidades por canal.
+- [x] Constraints e índices explícitos; timestamps `TIMESTAMPTZ` con `server_default=now()`;
+      `ON DELETE` declarado (`SET NULL` en `agents.role_key`, `CASCADE` en `agent_sources`,
+      `threads`). El esquema **no** tiene columnas `memoria` ni `conocimiento` en `agents`.
+- [x] Alembic async (`alembic/env.py` toma la URL de `Settings`) + migración `0001`;
+      exclusión explícita del autogenerate (`include_object`) de las seis tablas de la
+      librería conocidas por el spike S2. Verificado con un test que las deja presentes.
+- [x] Orden de arranque documentado en `alembic/README`: `setup()` de la librería primero,
+      migraciones de dominio después (§4, gap 6).
+- [x] `app/seed/`: port de `identidades.py`, `seed.py`, `empresa.py` y los personajes de
+      `basededatos.py` al JSON `app/seed/data/canonical.json` (provenance en
+      `scripts/port_canonical_seed.py`). **Idempotente**: *upsert* por clave/nombre y
+      reconciliación exacta de las asociaciones N:M.
+- [x] Usuario `admin` sembrado (D13) desde `ADMIN_USERNAME`/`ADMIN_EMAIL`/`ADMIN_PASSWORD`,
+      **sin contraseña por defecto** (si falta, se omite y se avisa).
+- [x] Artefacto **golden** `app/seed/golden/canonical_state.json` (roles, agentes, fuentes),
+      exportado por `app/seed/export.py`. Oráculo de la Fase 5.
+- [x] Tests de modelos (unicidad, `CHECK`, FK/`ON DELETE`, N:M, cascada) + test de
+      idempotencia de seed y de fidelidad al golden.
+- [x] Estrategia de BD de test (D11, ADR `0016`): esquema efímero **por sesión** en
+      `tests/conftest.py`, con aislamiento por transacción revertida; los tests de migración
+      corren `alembic upgrade/check/downgrade` en subproceso contra un esquema propio.
 
-**DoD:** `alembic upgrade head` + `make seed` (dos veces) deja el mismo estado; tests
-verdes; golden snapshot versionado; ninguna tabla de mensajes propia.
+**DoD:** ✅ verificado el 2026-09-21.
+
+| Comprobación | Evidencia |
+|---|---|
+| Migración aplica | `alembic upgrade head` → `Running upgrade -> 0001, domain schema` |
+| Sin drift con los modelos | `alembic check` → «No new upgrade operations detected» |
+| Tablas de la librería intactas | `\dt` lista dominio + las 6 de LangGraph; `downgrade` no las borra (test) |
+| Seed idempotente | `make seed` dos veces → mismo conteo (`23 roles / 19 fuentes / 19 agentes / 19 enlaces`) |
+| Golden versionado | `app/seed/golden/canonical_state.json` (84 KB) |
+| Sin tablas de mensajes propias | el esquema solo tiene las 6 tablas de dominio |
+| Formato, lint y contratos | `ruff format --check`, `ruff check`, `lint-imports` en verde |
+| Tests | `26 passed` |
 
 ---
 

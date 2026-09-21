@@ -1,0 +1,32 @@
+# Migraciones Alembic — `theyrethink-ai`
+
+## Dos autoridades de migración en la misma base
+
+En la misma base PostgreSQL conviven dos dueños del esquema (ADR `0003`, plan §4 hueco 6):
+
+| Autoridad | Qué gestiona | Cuándo se ejecuta |
+|---|---|---|
+| `setup()` de LangGraph | `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations`, `store`, `store_migrations` | En el `lifespan` de la app, en cada arranque (idempotente; spike S2) |
+| Alembic (este directorio) | El esquema **de dominio** (`app/models/domain.py`) | Manualmente / en el despliegue: `uv run alembic upgrade head` |
+
+### Orden de arranque
+
+1. `await AsyncPostgresSaver.setup()` y `await AsyncPostgresStore.setup()` — crean las seis
+   tablas de la librería y sus marcas de versión.
+2. `alembic upgrade head` — crea/actualiza el esquema de dominio.
+
+Las tablas de la librería quedan **excluidas del autogenerate** vía `include_object` en
+`env.py`, así que Alembic nunca las ve como faltantes ni las borra en un `downgrade`.
+
+## Comandos
+
+| Quiero | Comando |
+|---|---|
+| Aplicar migraciones | `uv run alembic upgrade head` |
+| Revertir una | `uv run alembic downgrade -1` |
+| Crear una migración | `uv run alembic revision --autogenerate -m "descripcion"` |
+
+La URL de conexión **no** vive en `alembic.ini`: `env.py` la toma de
+`app.config.Settings` (`DATABASE_URL`). Si se define la variable de entorno `DB_SCHEMA`, el
+engine fija `search_path` a ese esquema; es lo que usan los tests para levantar un esquema
+efímero por sesión (D11, ADR `0016`).
