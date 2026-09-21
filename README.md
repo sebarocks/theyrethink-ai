@@ -18,19 +18,21 @@ LangGraph, y frontend SvelteKit sobre Deno.
 
 ## Toolchain
 
-- **Python:** `uv` (Astral). Prohibido `pip` y `requirements.txt`; el pin vive en `uv.lock`.
-- **Frontend:** Deno. Prohibido Node y npm.
+- **Python:** `uv` (Astral).
+- **Frontend:** SvelteKit (Deno)
 
 Detalle y comandos en [`AGENTS.md`](./AGENTS.md).
 
 ## Arranque rápido
 
-```sh
-make db      # levanta Postgres con docker compose
-make migrate # aplica migraciones (Fase 1)
-make seed    # siembra los datos canónicos (Fase 1)
-make dev     # levanta la API en modo desarrollo
-```
+`make` es opcional: cada objetivo delega en el comando directo.
+
+| Operación | Comando directo | Comando `make` |
+|---|---|---|
+| Levantar Postgres | `docker compose up -d postgres` | `make db` |
+| Aplicar migraciones | `cd backend && uv run alembic upgrade head` | `make migrate` |
+| Sembrar datos canónicos | `cd backend && uv run python -m app.seed` | `make seed` |
+| Levantar la API en desarrollo | `cd backend && uv run uvicorn app.main:app --reload` | `make dev` |
 
 API en `http://localhost:8000` · `/healthz` · `/readyz` · `/docs`.
 

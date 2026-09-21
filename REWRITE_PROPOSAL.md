@@ -117,7 +117,7 @@ dominio. Si algún día se cambia de librería, solo se toca este módulo.
 backend/app/agent/
 ├── service.py     # API pública del núcleo: send_message(), consolidate(), ensure_memory()
 ├── graph.py       # definición de los grafos LangGraph (chat y memoria)
-├── llm.py         # fábrica de ChatDeepSeek (única puerta a la librería)
+├── llm.py         # fábrica del cliente LLM OpenAI-compatible (única puerta a la librería)
 ├── prompts.py     # construcción de system prompts — funciones puras, sin I/O
 └── memory.py      # lectura/escritura del Store + política de deduplicación
 ```
@@ -530,7 +530,7 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
 | Memoria sin selección → prompt creciente (D7) | Costo y latencia suben con la memoria | Techo de `0.4 × contexto`; métrica de tokens inyectados; compactación y dedup semántica si se acerca al techo |
 | **Caché de prompt desperdiciada** (D7) | Un *cache miss* cuesta del orden de 10× un *cache hit* | Memoria al final **y transitoria**; prefijo `[system][historial]` byte-estable; nada volátil al inicio; hechos en orden de inserción |
 | Superficie operativa | Una sola pieza: Postgres (dominio + checkpointer + cola, D14) | `docker-compose` para dev; backups en Fase 6 |
-| Disciplina async (bloquear el loop con código sync) | `ChatDeepSeek` async, `asyncpg`, sesiones async; revisar que ningún `async def` llame código bloqueante |
+| Disciplina async (bloquear el loop con código sync) | Cliente LLM async, `asyncpg`, sesiones async; revisar que ningún `async def` llame código bloqueante |
 | Expectativa de "menos código" mal calibrada | El mayor ahorro está en el frontend y en el núcleo de sesiones/memoria; el CRUD de dominio y el dashboard siguen siendo código propio |
 | Pérdida de datos en la migración | Script idempotente + fixtures sintéticas + verificación contra dump (§12 F5, plan de desarrollo §5) |
 

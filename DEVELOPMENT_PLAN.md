@@ -78,10 +78,12 @@ escrita**. No se construye sobre una librería cuya capacidad no se ha verificad
 | S5 | ¿`import-linter` bloquea `langgraph` fuera de `agent/` con la estructura propuesta? | Fase 0 | Contrato versionado en `pyproject.toml` |
 | S6 | ¿SvelteKit + Tailwind se construyen bajo **Deno** sin Node? Puntos frágiles: plugins de Vite, `svelte-check`, Vitest y Playwright. ¿`adapter-static` deja Deno solo en build-time? | Fase 4 | Nota con `deno task` reales, y decisión sobre E2E (Playwright bajo Deno, automatización nativa tipo `astral`, o checklist manual) |
 
-**Estado (2026-09-16):** S2, S5 y S6 **concluidos** con evidencia en `docs/spikes/`; S1 y S3
-**parciales**. S1 espera credenciales del proveedor real (D15) y es **requisito de entrada de
-la Fase 2**; S3 tiene resuelta su mitad de transporte y se cierra al implementar el endpoint
-SSE en la Fase 3.
+**Estado (2026-09-21):** S1, S2, S5 y S6 **concluidos** con evidencia en `docs/spikes/`;
+S3 **parcial**. S1 se cerro contra un proveedor real OpenAI-compatible (OpenRouter); el
+modelo **recomendado** es `openai/gpt-5.6-luna` (streaming y `json_schema` fiables), pero no
+es un pin: cualquier modelo OpenAI-compatible se permite y se valida con
+`backend/scripts/spike_s1.py`. Deja satisfecho el gate de la Fase 2. S3 tiene resuelta su
+mitad de transporte y se cierra al implementar el endpoint SSE en la Fase 3.
 
 Tres hallazgos cambiaron decisiones ya escritas y quedaron corregidos en las fuentes de
 verdad: el namespace del `Store` exige etiquetas `str` (S2), `adapter-static` en lugar de
@@ -369,7 +371,7 @@ la memoria inyectada no queda en el estado persistido.
       sembrado (Fase 1). Rate limiting, verificación de email y captcha según Fase 6.
 - [ ] Routers `v1`: `auth`, `agents`, `roles`, `sources`, `threads`, `chat`.
 - [ ] DTOs Pydantic y envelope de error estable `{error, code, detail}` con manejadores
-      centralizados (conservando el manejo tipado de errores de DeepSeek).
+      centralizados (conservando el manejo tipado de errores del proveedor LLM).
 - [ ] Endpoint SSE de chat: formato de evento estable, heartbeat, cancelación.
 - [ ] **Matriz de autorización** declarada por endpoint + test paramétrico 401/403/404.
 - [ ] OpenAPI: snapshot versionado + test que falla si cambia sin actualizarse; cliente TS
