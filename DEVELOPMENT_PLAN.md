@@ -32,7 +32,7 @@
 | 0 | Andamiaje | ✅ cerrada | ✅ |
 | 1 | Dominio y datos | ✅ cerrada | ✅ |
 | 2 | Núcleo del agente | ✅ cerrada | ✅ |
-| 3 | API | ⬜ pendiente | ⬜ |
+| 3 | API | ✅ cerrada | ✅ |
 | 4 | Frontend | ⬜ pendiente | ⬜ |
 | 5 | Migración de datos | ⬜ pendiente | ⬜ |
 | 6 | Endurecimiento y corte | ⬜ pendiente | ⬜ |
@@ -379,26 +379,27 @@ la memoria inyectada no queda en el estado persistido.
 
 **Tareas**
 
-- [ ] `api/deps.py` (D2): autenticación por cookie httpOnly, `require_user`, `require_admin`
+- [x] `api/deps.py` (D2): autenticación por cookie httpOnly, `require_user`, `require_admin`
       y **verificación de pertenencia** (un hilo solo lo ve su dueño).
-- [ ] Sesiones (D2): store en Postgres, cookie `HttpOnly`/`Secure`, revocación y logout; sin
+- [x] Sesiones (D2): store en Postgres, cookie `HttpOnly`/`Secure`, revocación y logout; sin
       CORS por D4 (mismo origen).
-- [ ] Registro público (D13): endpoint de alta con validación de unicidad de `username` y
+- [x] Registro público (D13): endpoint de alta con validación de unicidad de `username` y
       `email`, política de contraseña y `role = 'usuario'` por defecto; el `admin` viene
       sembrado (Fase 1). Rate limiting, verificación de email y captcha según Fase 6.
-- [ ] Routers `v1`: `auth`, `agents`, `roles`, `sources`, `threads`, `chat`.
-- [ ] DTOs Pydantic y envelope de error estable `{error, code, detail}` con manejadores
+- [x] Routers `v1`: `auth`, `agents`, `roles`, `sources`, `threads`, `chat`.
+- [x] DTOs Pydantic y envelope de error estable `{error, code, detail}` con manejadores
       centralizados (conservando el manejo tipado de errores del proveedor LLM).
-- [ ] Endpoint SSE de chat: formato de evento estable, heartbeat, cancelación.
-- [ ] **Matriz de autorización** declarada por endpoint + test paramétrico 401/403/404.
-- [ ] OpenAPI: snapshot versionado + test que falla si cambia sin actualizarse; cliente TS
+- [x] Endpoint SSE de chat: formato de evento estable, heartbeat, cancelación.
+- [x] **Matriz de autorización** declarada por endpoint + test paramétrico 401/403/404.
+- [x] OpenAPI: snapshot versionado + test que falla si cambia sin actualizarse; cliente TS
       generado como artefacto de CI.
-- [ ] `D12` implementado (endpoint de avatar, sin SVG, con límite de tamaño y tipo).
-- [ ] `D10` implementado (borrado de hilo vs olvidar memoria).
+- [x] `D12` implementado (endpoint de avatar, sin SVG, con límite de tamaño y tipo).
+- [x] `D10` implementado (borrado de hilo vs olvidar memoria).
 
-**DoD:** `openapi.json` estable + snapshot test; tests de contrato y autorización verdes;
-ningún endpoint mutador sin autorización; cliente TS generándose sin errores; `/docs`
-navegable.
+**DoD:** ✅ verificado el 2026-09-22: `openapi.json` estable + snapshot test; tests de
+contrato y autorización verdes; ningún endpoint mutador sin autorización; cliente TS
+regenerándose sin errores; `/docs` navegable. El job CI de Deno queda activado en la Fase 4,
+cuando exista la aplicación frontend completa.
 
 ---
 

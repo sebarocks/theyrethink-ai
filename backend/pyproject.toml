@@ -16,6 +16,7 @@ dependencies = [
     "langgraph-checkpoint-postgres",
     "argon2-cffi>=25.1.0",
     "openai>=3.14.1",
+    "python-multipart>=0.0.32",
 ]
 
 # El pin exacto de versiones vive en uv.lock, que se versiona. Ver AGENTS.md §2.

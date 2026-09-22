@@ -72,7 +72,8 @@ async def test_seed_links_agent_to_its_sources(session: AsyncSession) -> None:
 
 
 async def test_admin_is_seeded_only_with_password(session: AsyncSession, monkeypatch) -> None:
-    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+    # Un valor vacío sobreescribe también el `.env` cargado por pydantic-settings.
+    monkeypatch.setenv("ADMIN_PASSWORD", "")
     get_settings.cache_clear()
     await seed(session, include_admin=True)
     assert (

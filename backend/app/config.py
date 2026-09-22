@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     admin_email: str | None = None
     admin_password: str | None = None
 
+    # Avatares: volumen local fuera de los estáticos (ADR 0017).
+    avatar_storage_dir: str = "var/avatars"
+
     @model_validator(mode="after")
     def _forbid_debug_in_production(self) -> "Settings":
         if self.environment == "production" and self.debug:

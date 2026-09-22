@@ -6,6 +6,7 @@ from app.models.domain import (
     ConsolidationJob,
     KnowledgeSource,
     Role,
+    Session,
     Thread,
     User,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "ConsolidationJob",
     "KnowledgeSource",
     "Role",
+    "Session",
     "Thread",
     "User",
 ]

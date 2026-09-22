@@ -7,9 +7,16 @@ secundarios más allá de construir la app.
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.agent.runtime import agent_runtime
+from app.api.v1.agents import router as agents_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.catalogs import router as catalogs_router
+from app.api.v1.chat import router as chat_router
+from app.api.v1.threads import router as threads_router
 from app.config import get_settings
 from app.db import ping_database
 
@@ -29,6 +36,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
 
+def _error_response(status_code: int, detail: object) -> JSONResponse:
+    if isinstance(detail, dict) and {"error", "code", "detail"} <= detail.keys():
+        payload = detail
+    else:
+        payload = {
+            "error": "request_error",
+            "code": "http_error",
+            "detail": detail,
+        }
+    return JSONResponse(status_code=status_code, content=payload)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -37,6 +56,29 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
+        return _error_response(exc.status_code, exc.detail)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        _request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        return _error_response(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            {
+                "error": "validation_error",
+                "code": "invalid_request",
+                "detail": exc.errors(),
+            },
+        )
+
+    app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(agents_router, prefix="/api/v1")
+    app.include_router(catalogs_router, prefix="/api/v1")
+    app.include_router(threads_router, prefix="/api/v1")
+    app.include_router(chat_router, prefix="/api/v1")
 
     @app.get("/healthz", tags=["operational"], summary="Proceso vivo")
     async def healthz() -> dict[str, str]:

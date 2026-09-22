@@ -43,8 +43,8 @@ migrate:
 seed:
 	cd $(BACKEND) && uv run python -m app.seed
 
-# El frontend se andamia en la Fase 4; hasta entonces no hay `deno task` que invocar.
 openapi:
-	@echo "El cliente API se genera en la Fase 3 (ver DEVELOPMENT_PLAN.md §5)."
+	cd $(BACKEND) && uv run python -m scripts.export_openapi
+	cd $(FRONTEND) && deno task openapi
 
 check: lint test

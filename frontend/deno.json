@@ -1,0 +1,13 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "openapi-fetch": "npm:openapi-fetch@0.14.0",
+    "openapi-typescript": "npm:openapi-typescript@7.9.1"
+  },
+  "tasks": {
+    "openapi": "deno run -A npm:openapi-typescript ../docs/openapi.json -o src/lib/api/generated.ts",
+    "check": "deno check src/**/*.ts scripts/**/*.ts",
+    "fmt": "deno fmt",
+    "lint": "deno lint"
+  }
+}

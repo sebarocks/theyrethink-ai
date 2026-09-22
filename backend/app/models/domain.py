@@ -36,6 +36,7 @@ __all__ = [
     "ConsolidationJob",
     "KnowledgeSource",
     "Role",
+    "Session",
     "Thread",
     "User",
 ]
@@ -59,6 +60,29 @@ class User(SQLModel, table=True):
         sa_column=Column(
             DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
         )
+    )
+
+
+class Session(SQLModel, table=True):
+    """Sesión revocable asociada a una cookie httpOnly."""
+
+    __tablename__ = "sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        )
+    )
+    token_hash: str = Field(sa_column=Column(String(64), nullable=False, unique=True, index=True))
+    created_at: dt.datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    )
+    expires_at: dt.datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, index=True)
+    )
+    revoked_at: dt.datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
 
 
