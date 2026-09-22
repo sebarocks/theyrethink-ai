@@ -22,7 +22,12 @@ os.environ.setdefault(
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlmodel import SQLModel
 
 import app.models  # noqa: F401  (registra el metadata de dominio)
@@ -78,3 +83,39 @@ async def session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         finally:
             await async_session.close()
             await transaction.rollback()
+
+
+@pytest.fixture
+async def isolated_sessionmaker() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Esquema efimero **por test** con su propio `sessionmaker`.
+
+    Lo usan los tests que necesitan commits reales (cola de consolidacion, metadatos de hilo)
+    sin contaminar el esquema compartido de la sesion de tests.
+    """
+    admin_engine = create_async_engine(
+        str(get_settings().database_url), isolation_level="AUTOCOMMIT"
+    )
+    schema = f"iso_{uuid4().hex[:12]}"
+    async with admin_engine.begin() as connection:
+        await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+    engine = create_async_engine(
+        str(get_settings().database_url),
+        connect_args={"server_settings": {"search_path": schema}},
+    )
+    async with engine.begin() as connection:
+        await connection.run_sync(SQLModel.metadata.create_all)
+    try:
+        yield async_sessionmaker(engine, expire_on_commit=False)
+    finally:
+        await engine.dispose()
+        async with admin_engine.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        await admin_engine.dispose()
+
+
+@pytest.fixture
+async def sessionmaker(
+    isolated_sessionmaker: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Alias corto de `isolated_sessionmaker` para los tests que lo consumen directamente."""
+    yield isolated_sessionmaker

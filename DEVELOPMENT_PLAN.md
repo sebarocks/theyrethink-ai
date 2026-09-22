@@ -31,7 +31,7 @@
 |---|---|---|---|
 | 0 | Andamiaje | ✅ cerrada | ✅ |
 | 1 | Dominio y datos | ✅ cerrada | ✅ |
-| 2 | Núcleo del agente | ⬜ pendiente | ⬜ |
+| 2 | Núcleo del agente | ✅ cerrada | ✅ |
 | 3 | API | ⬜ pendiente | ⬜ |
 | 4 | Frontend | ⬜ pendiente | ⬜ |
 | 5 | Migración de datos | ⬜ pendiente | ⬜ |
@@ -310,47 +310,64 @@ detrás de `agent/service.py` y sin I/O real en los tests.
 
 **Tareas**
 
-- [ ] `agent/prompts.py`: port de `prompt.py` a **funciones puras** (rol + perfil +
+- [x] `agent/prompts.py`: port de `prompt.py` a **funciones puras** (rol + perfil +
       identidad + fuentes + memoria → string). Tests *golden* de prompt.
-- [ ] `agent/llm.py`: fábrica **agnóstica de proveedor**, con `base_url`, `api_key` y `model`
+- [x] `agent/llm.py`: fábrica **agnóstica de proveedor**, con `base_url`, `api_key` y `model`
       por **variables de entorno** sobre API OpenAI-compatible (D15), timeouts, retries,
       taxonomía de errores del proveedor y helper de salida estructurada.
-- [ ] `agent/memory.py`: `MemoryFact`/`ExtractedMemories`, extractor, dedup normalizada,
+- [x] `agent/memory.py`: `MemoryFact`/`ExtractedMemories`, extractor, dedup normalizada,
       lectura/escritura del `Store`, política de inyección con techo (D7) y namespace. El
       namespace debe castear a `str`: `("agent", str(agent_id), "user", str(user_id))`
       — con enteros LangGraph lanza `InvalidNamespaceError` (spike S2).
-- [ ] `agent/graph.py`: `build_chat_graph` y `build_memory_graph`; compilación única en
+- [x] `agent/graph.py`: `build_chat_graph` y `build_memory_graph`; compilación única en
       `lifespan`. El grafo de memoria **no** usa checkpointer (no es una conversación).
-- [ ] `agent/service.py`: `send_message()` (con stream), `consolidate()`, `ensure_memory()`,
+- [x] `agent/service.py`: `send_message()` (con stream), `consolidate()`, `ensure_memory()`,
       alta/baja de metadatos de hilo. Devuelve **DTOs de dominio**, nunca `BaseMessage`.
-- [ ] Cola de consolidación (D7/D14): tabla en Postgres con `SELECT ... FOR UPDATE SKIP
+- [x] Cola de consolidación (D7/D14): tabla en Postgres con `SELECT ... FOR UPDATE SKIP
       LOCKED`; el API encola **en la misma transacción que el turno**; worker que consume
       `agent/service.py`.
-- [ ] Marca de agua (D7): `threads.last_consolidated_at` delimita la ventana a extraer y hace
+- [x] Marca de agua (D7): `threads.last_consolidated_at` delimita la ventana a extraer y hace
       la consolidación idempotente ante reintentos de la cola.
-- [ ] **`N=1`** (D7): se consolida en cada turno. `N` queda como **palanca de costo** en
+- [x] **`N=1`** (D7): se consolida en cada turno. `N` queda como **palanca de costo** en
       configuración, con *flush* al cerrar el hilo si algún día sube.
-- [ ] **Inyección de memoria *cache-friendly*** (§4, gap 12): orden
+- [x] **Inyección de memoria *cache-friendly*** (§4, gap 12): orden
       `[system][historial][memoria][mensaje nuevo]`; la memoria entra **al final, antes del
       mensaje nuevo**, y **no se persiste** en el estado del hilo; `system` e historial quedan
       byte-estables.
-- [ ] Techo de inyección = `0.4 × contexto` del modelo, calculado en runtime (§4, gap 11).
-- [ ] `lifespan`: `AsyncPostgresSaver` + `AsyncPostgresStore` (`setup()`), inyectados.
-- [ ] Tests sin I/O: `FakeLLM` + `InMemorySaver` + `InMemoryStore` + cola falsa, cubriendo
+- [x] Techo de inyección = `0.4 × contexto` del modelo, calculado en runtime (§4, gap 11).
+- [x] `lifespan`: `AsyncPostgresSaver` + `AsyncPostgresStore` (`setup()`), inyectados.
+- [x] Tests sin I/O: `FakeLLM` + `InMemorySaver` + `InMemoryStore` + cola falsa, cubriendo
       streaming, persistencia/lectura de memoria, dedup, techo de inyección, prefijo
       `[system][historial]` byte-estable entre turnos y que la memoria inyectada **no** quede
       en el estado persistido.
-- [ ] Activar el contrato `import-linter`: `langgraph`/`langchain` solo dentro de `agent/`.
-- [ ] Segunda barrera (S5): `grep` en CI que falle si `langgraph`/`langchain` aparecen fuera de
+- [x] Activar el contrato `import-linter`: `langgraph`/`langchain` solo dentro de `agent/`.
+- [x] Segunda barrera (S5): `grep` en CI que falle si `langgraph`/`langchain` aparecen fuera de
       `app/agent/`. El contrato enumera paquetes uno por uno, así que un paquete nuevo de primer
       nivel no quedaría cubierto.
-- [ ] **Logging estructurado mínimo** con ids de correlación (`thread_id`, `agent_id`,
+- [x] **Logging estructurado mínimo** con ids de correlación (`thread_id`, `agent_id`,
       `user_id`) — adelantado de Fase 6 (§4, gap 7).
 
 **DoD:** tests sin I/O real verdes (streaming, memoria, dedup, techo de inyección, prefijo
 byte-estable y job duplicado ⇒ sin recuerdos duplicados); golden prompts; contrato de imports
 verde; cero código propio de historial/mensajes; memoria de un agente+usuario aislada de otro;
 la memoria inyectada no queda en el estado persistido.
+
+**Notas de cierre (2026-09-22)**
+
+- **`N=1` implementado; la palanca `N` no se expone todavía.** El disparador es un turno por
+  trabajo de cola. Subir `N` exige *flush* al cerrar el hilo (D7), así que no se añade una
+  configuración que hoy no haría nada.
+- **Contexto del modelo:** `resolve_context_tokens` lo **descubre en runtime** desde
+  `GET /models` del proveedor (OpenRouter publica `context_length`; se prueban también
+  `context_window`, `max_input_tokens`, `max_context_length` y `top_provider.context_length`).
+  Si el proveedor no lo publica, cae al perfil del modelo de LangChain y, como último recurso,
+  a `LLM_CONTEXT_TOKENS` (override explícito para casos como la API de OpenAI). Si ninguna
+  fuente responde, el arranque falla con un error claro en vez de inventarse un techo.
+- **Contrato de imports:** el contrato `forbidden` se fijó con `allow_indirect_imports = true`,
+  porque `app.main` importa `app.agent.runtime` (la costura) y eso es legítimo; lo que se
+  prohíbe es importar la librería directamente. Ver `docs/spikes/S5-*`.
+- **Segunda barrera:** el `grep` de S5 se implementó como test (`tests/test_import_barrier.py`),
+  que corre en CI con el resto de la suite.
 
 ---
 

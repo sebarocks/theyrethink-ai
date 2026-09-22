@@ -10,6 +10,8 @@ from typing import Literal
 from pydantic import Field, PostgresDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+StructuredOutputMethod = Literal["json_schema", "function_calling"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -31,6 +33,19 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None
+    # Contexto del modelo para el techo de memoria (D7). **Override opcional**: el contexto se
+    # descubre en runtime desde `GET /models` del proveedor; esto solo hace falta para
+    # proveedores que no lo publican (p. ej. la API de OpenAI).
+    llm_context_tokens: int | None = None
+    llm_timeout_seconds: float = 60.0
+    llm_max_retries: int = 2
+    # `json_schema` impone el esquema; `function_calling` es el fallback equivalente (S1).
+    llm_structured_output_method: StructuredOutputMethod = "json_schema"
+
+    # Cola de consolidacion de memoria (D7/D14).
+    consolidation_worker_enabled: bool = True
+    consolidation_interval_seconds: float = 1.0
+    consolidation_max_attempts: int = 3
 
     # Primer administrador (D13). Sin contrasena por defecto: si `admin_password` no esta
     # definida, el seed omite la creacion y avisa (AGENTS.md §5).

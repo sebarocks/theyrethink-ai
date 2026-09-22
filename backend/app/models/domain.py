@@ -33,6 +33,7 @@ from sqlmodel import Field, SQLModel
 __all__ = [
     "Agent",
     "AgentSource",
+    "ConsolidationJob",
     "KnowledgeSource",
     "Role",
     "Thread",
@@ -196,3 +197,41 @@ class Thread(SQLModel, table=True):
     last_consolidated_at: dt.datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
+
+
+class ConsolidationJob(SQLModel, table=True):
+    """Cola de consolidacion de memoria (D7/D14).
+
+    No es una tabla de mensajes ni de memoria: es una **cola de trabajos**. Se encola en la
+    misma transaccion que el turno (por eso no hay ventana de inconsistencia) y el worker la
+    consume con `SELECT ... FOR UPDATE SKIP LOCKED`. `created_at` es la marca temporal que el
+    servicio usa como marca de agua para hacer la consolidacion idempotente.
+    """
+
+    __tablename__ = "consolidation_jobs"
+    __table_args__ = (Index("ix_consolidation_jobs_pending", "attempts", "created_at"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    thread_id: int = Field(
+        sa_column=Column(
+            Integer, ForeignKey("threads.id", ondelete="CASCADE"), nullable=False, index=True
+        )
+    )
+    agent_id: int = Field(
+        sa_column=Column(Integer, ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    )
+    user_id: int = Field(
+        sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    )
+    created_at: dt.datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+        )
+    )
+    claimed_at: dt.datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    attempts: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
+    )
+    last_error: str | None = Field(default=None, sa_column=Column(Text, nullable=True))

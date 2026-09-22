@@ -15,6 +15,7 @@ dependencies = [
     "langchain-openai",
     "langgraph-checkpoint-postgres",
     "argon2-cffi>=25.1.0",
+    "openai>=3.14.1",
 ]
 
 # El pin exacto de versiones vive en uv.lock, que se versiona. Ver AGENTS.md §2.
@@ -68,6 +69,10 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "LangGraph y LangChain solo dentro de app.agent"
 type = "forbidden"
+# Solo imports **directos**: `app.main` importa `app.agent.runtime` (la costura), y eso es
+# legitimo; lo que no puede es importar la libreria el mismo. Sin esta opcion, el contrato
+# marcaria la cadena `app.main -> app.agent -> langchain` como violacion.
+allow_indirect_imports = true
 source_modules = [
     "app.api",
     "app.models",

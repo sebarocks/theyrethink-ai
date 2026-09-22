@@ -50,3 +50,18 @@ bajo `app/` no queda cubierto hasta que se añade a `source_modules`.** La alter
 **Recomendación:** mantener el contrato (expresa la intención y da buenos mensajes) **y**
 añadir en la Fase 2 un `grep` de CI como segunda barrera. Hasta entonces, la nota está escrita
 junto al propio contrato en `pyproject.toml`.
+
+## Actualización (Fase 2, 2026-09-22) — imports indirectos
+
+Al cablear el `lifespan` (`app.main` importa `app.agent.runtime`), el contrato `forbidden`
+empezó a fallar con cadenas como `app.main -> app.agent.runtime -> app.agent.llm -> langchain`.
+Eso **no** es una violación de la costura: la intención es que la librería se importe solo
+*dentro* de `app/agent/`, y que el resto del backend use la costura.
+
+**Corrección:** `allow_indirect_imports = true` en el contrato. Así solo se prohíben los
+imports **directos** de la librería desde los módulos listados; `app.main -> app.agent` sigue
+permitido y `import langgraph` en `app/main.py` sigue fallando.
+
+**Segunda barrera implementada:** `backend/tests/test_import_barrier.py` recorre el AST de
+`app/` y falla si la librería aparece fuera de `app/agent/`, cubriendo también paquetes nuevos
+de primer nivel que el contrato no enumere.

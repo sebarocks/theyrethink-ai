@@ -3,6 +3,7 @@
 from app.models.domain import (
     Agent,
     AgentSource,
+    ConsolidationJob,
     KnowledgeSource,
     Role,
     Thread,
@@ -12,6 +13,7 @@ from app.models.domain import (
 __all__ = [
     "Agent",
     "AgentSource",
+    "ConsolidationJob",
     "KnowledgeSource",
     "Role",
     "Thread",
