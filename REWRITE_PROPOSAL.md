@@ -576,6 +576,9 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
      final. Desarrollado en §13.
 - **D8 — Modo de SvelteKit → SPA** con `adapter-static`, servido por el mismo origen (D4).
   Deno queda **solo en tiempo de build**; el runtime es FastAPI sirviendo estáticos.
+- **D9 — Librería i18n → Paraglide JS** (`@inlang/paraglide-js`, v2), *compile-time* y
+  *tree-shakeable*, con los mensajes en `messages/{locale}.json` y la locale persistida en
+  `localStorage`. Desarrollado en §9.3 y ADR `0019`.
 - **D10 — Semántica de borrado.** Borrar un hilo ⇒ checkpoint + fila `threads`; **no** toca
   el `Store`. "Olvidar memoria" es endpoint aparte y explícito.
 - **D11 — BD de test → esquema efímero por sesión** sobre el Postgres de `docker-compose`.
@@ -602,13 +605,15 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
     memoria al final, D7) o una alternativa equivalente.
   - Calidad multilingüe en los 6 idiomas soportados (es, en, fr, pt, ko, zh).
   - Concurrencia suficiente para chat en streaming + extracción en background.
+- **D16 — Lectura del historial de un hilo → `GET /api/v1/threads/{id}/messages`.** El
+  transcript se lee del **checkpointer** a través de `agent/service.py` (DTOs de dominio),
+  nunca con SQL propio (`AGENTS.md` §3.3). Solo se exponen los mensajes `user`/`assistant`:
+  el `system_prompt` y la memoria inyectada no son conversación (D7). Necesario para reanudar
+  un hilo en la UI y para las transcripciones del dashboard. Ver ADR `0020`.
 
 ### Abiertas
 
-- **D9 — Librería i18n.** En evaluación. Candidatas: **Paraglide**, **typesafe-i18n**,
-  `svelte-i18n`, `i18next`, **Lingui**, **Fluent** (`@nubolab/svelte-fluent`) y una solución
-  propia mínima. Criterios: tipado de claves, *tree-shaking*, plurales y formato de números y
-  fechas, y costo de portar ~350-450 claves × 6 idiomas. Bloquea Fase 4.
+Ninguna. Todas las decisiones registradas están resueltas.
 
 ---
 

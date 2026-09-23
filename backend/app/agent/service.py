@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.agent.consolidation import ConsolidationQueue
-from app.agent.dto import ChatChunk, ConsolidationJobDTO, ThreadMetadata
+from app.agent.dto import ChatChunk, ConsolidationJobDTO, MessageDTO, ThreadMetadata
 from app.agent.memory import MemoryFact, memory_namespace, read_facts, write_facts
 from app.agent.observability import log_event
 from app.models import Thread
@@ -130,6 +130,28 @@ class AgentService:
             if delta:
                 yield ChatChunk(text=delta)
         yield ChatChunk(done=True)
+
+    async def read_messages(self, *, thread_id: int) -> list[MessageDTO]:
+        """Transcript del hilo leido del **checkpointer** (D16).
+
+        Solo se exponen los mensajes `user`/`assistant`: el `system_prompt` vive en su propio
+        campo del estado y la memoria se inyecta de forma transitoria, asi que ninguno de los
+        dos aparece aqui (D7).
+        """
+        snapshot = await self._chat_graph.aget_state(
+            {"configurable": {"thread_id": str(thread_id)}}
+        )
+        messages = snapshot.values.get("messages", []) if snapshot else []
+        transcript: list[MessageDTO] = []
+        for message in messages:
+            text = _content_to_text(message)
+            if not text:
+                continue
+            if isinstance(message, HumanMessage):
+                transcript.append(MessageDTO(role="user", text=text))
+            elif isinstance(message, AIMessage):
+                transcript.append(MessageDTO(role="assistant", text=text))
+        return transcript
 
     # -------------------------------------------------------------- memoria
 

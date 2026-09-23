@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # Avatares: volumen local fuera de los estáticos (ADR 0017).
     avatar_storage_dir: str = "var/avatars"
 
+    # Build de la SPA que sirve FastAPI en el mismo origen (D4). Si está vacío, se usa
+    # `frontend/build` del repo; si el directorio no existe, no se monta (modo desarrollo).
+    frontend_dist_dir: str | None = None
+
     @model_validator(mode="after")
     def _forbid_debug_in_production(self) -> "Settings":
         if self.environment == "production" and self.debug:

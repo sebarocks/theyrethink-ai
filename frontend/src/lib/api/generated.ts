@@ -271,7 +271,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Messages
+         * @description Transcript del hilo, leido del checkpointer via `agent/service.py` (D16).
+         */
+        get: operations["list_messages_api_v1_threads__thread_id__messages_get"];
         put?: never;
         /** Send Message */
         post: operations["send_message_api_v1_threads__thread_id__messages_post"];
@@ -335,7 +339,7 @@ export interface components {
              * Profile
              * @default
              */
-            profile: string;
+            profile?: string;
             /** Role Key */
             role_key?: string | null;
         };
@@ -383,6 +387,19 @@ export interface components {
             /** Username */
             username: string;
         };
+        /**
+         * MessageResponse
+         * @description Mensaje del transcript (D16). Solo `user`/`assistant`.
+         */
+        MessageResponse: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Text */
+            text: string;
+        };
         /** RegisterRequest */
         RegisterRequest: {
             /** Email */
@@ -398,12 +415,12 @@ export interface components {
              * Description
              * @default
              */
-            description: string;
+            description?: string;
             /**
              * Is System
              * @default false
              */
-            is_system: boolean;
+            is_system?: boolean;
             /** Key */
             key: string;
             /** Name */
@@ -412,7 +429,7 @@ export interface components {
              * Prompt
              * @default
              */
-            prompt: string;
+            prompt?: string;
         };
         /** RoleResponse */
         RoleResponse: {
@@ -446,7 +463,7 @@ export interface components {
              * Content
              * @default
              */
-            content: string;
+            content?: string;
             /** Name */
             name: string;
         };
@@ -474,7 +491,7 @@ export interface components {
              * Title
              * @default Nueva conversación
              */
-            title: string;
+            title?: string;
         };
         /** ThreadResponse */
         ThreadResponse: {
@@ -1322,6 +1339,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThreadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_threads__thread_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"][];
                 };
             };
             /** @description Validation Error */

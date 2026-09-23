@@ -9,10 +9,17 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass, field
+from typing import Literal
 
 from app.agent.prompts import SourceText
 
-__all__ = ["AgentContext", "ChatChunk", "ConsolidationJobDTO", "ThreadMetadata"]
+__all__ = [
+    "AgentContext",
+    "ChatChunk",
+    "ConsolidationJobDTO",
+    "MessageDTO",
+    "ThreadMetadata",
+]
 
 
 @dataclass(frozen=True)
@@ -42,6 +49,18 @@ class ChatChunk:
     text: str = ""
     done: bool = False
     metadata: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MessageDTO:
+    """Mensaje del transcript de un hilo (solo `user`/`assistant`).
+
+    El `system_prompt` y la memoria inyectada **no** forman parte del transcript: no son
+    conversacion (D7, D16).
+    """
+
+    role: Literal["user", "assistant"]
+    text: str
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,6 @@
+{
+  "languages": {
+    "TypeScript": { "language_servers": ["!vtsls"] },
+    "JavaScript": { "language_servers": ["!vtsls"] },
+  }
+}

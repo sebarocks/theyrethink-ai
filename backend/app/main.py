@@ -19,6 +19,7 @@ from app.api.v1.chat import router as chat_router
 from app.api.v1.threads import router as threads_router
 from app.config import get_settings
 from app.db import ping_database
+from app.spa import mount_spa
 
 API_VERSION = "0.1.0"
 
@@ -94,6 +95,10 @@ def create_app() -> FastAPI:
                 detail="database unavailable",
             )
         return {"status": "ok", "database": "up"}
+
+    # D4: sirve la SPA construida en el mismo origen. Va al final para que las rutas de API,
+    # healthchecks y docs tengan prioridad sobre el montaje de `/`.
+    mount_spa(app)
 
     return app
 

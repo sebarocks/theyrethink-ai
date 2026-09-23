@@ -93,6 +93,42 @@ async def test_send_message_streams_and_persists_turn(sessionmaker: async_sessio
     ]
 
 
+async def test_read_messages_returns_transcript_without_system_prompt(
+    sessionmaker: async_sessionmaker,
+) -> None:
+    """D16: el transcript sale del checkpointer y no incluye el `system_prompt`."""
+    thread_id = await _seed_thread(sessionmaker)
+    service = _service(sessionmaker)
+
+    async for _ in service.send_message(agent_id=1, user_id=1, thread_id=thread_id, text="hola"):
+        pass
+
+    transcript = await service.read_messages(thread_id=thread_id)
+
+    assert [(message.role, message.text) for message in transcript] == [
+        ("user", "hola"),
+        ("assistant", "respuesta del agente"),
+    ]
+
+
+async def test_read_messages_excludes_injected_memory(sessionmaker: async_sessionmaker) -> None:
+    """D7/D16: la memoria inyectada es transitoria y no aparece en el transcript."""
+    thread_id = await _seed_thread(sessionmaker)
+    store = InMemoryStore()
+    service = _service(sessionmaker, store=store)
+    await service.ensure_memory(
+        agent_id=1, user_id=1, facts=[MemoryFact(content="vive en Santiago")]
+    )
+
+    async for _ in service.send_message(agent_id=1, user_id=1, thread_id=thread_id, text="hola"):
+        pass
+
+    transcript = await service.read_messages(thread_id=thread_id)
+
+    assert [message.role for message in transcript] == ["user", "assistant"]
+    assert all("Santiago" not in message.text for message in transcript)
+
+
 async def test_record_turn_updates_metadata_and_enqueues_atomically(
     sessionmaker: async_sessionmaker,
 ) -> None:

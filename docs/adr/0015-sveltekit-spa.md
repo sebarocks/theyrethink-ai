@@ -19,4 +19,5 @@ El frontend actual son plantillas Jinja con JS duplicado por canal. Hacía falta
 - El cliente TypeScript se genera desde el OpenAPI; prohibido escribir `fetch` a mano.
 - Tailwind por build de Vite, nunca CDN; el script anti-parpadeo de tema se traslada al layout de SvelteKit.
 - Modo SPA: no hay SSR; la navegación y los datos se resuelven en el cliente contra `/api/v1`.
-- **D9 sigue abierta:** la librería de i18n (Paraglide, typesafe-i18n, `svelte-i18n`, i18next, Lingui, Fluent o una propia mínima) no está decidida y bloquea la Fase 4.
+- **D9 resuelta (Paraglide JS):** la librería de i18n es `@inlang/paraglide-js` v2, con
+  mensajes en `messages/{locale}.json` y locale en `localStorage`. Ver ADR `0019`.

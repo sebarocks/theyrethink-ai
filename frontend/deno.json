@@ -1,13 +1,43 @@
 {
   "nodeModulesDir": "auto",
-  "imports": {
-    "openapi-fetch": "npm:openapi-fetch@0.14.0",
-    "openapi-typescript": "npm:openapi-typescript@7.9.1"
+  "fmt": {
+    "exclude": ["src/lib/api/generated.ts", "src/lib/paraglide/"]
   },
   "tasks": {
-    "openapi": "deno run -A npm:openapi-typescript ../docs/openapi.json -o src/lib/api/generated.ts",
-    "check": "deno check src/**/*.ts scripts/**/*.ts",
-    "fmt": "deno fmt",
-    "lint": "deno lint"
+    "sync": "deno run -A npm:@sveltejs/kit@^2.63.0 sync",
+    "i18n": "deno run -A npm:@inlang/paraglide-js@^2 compile --project ./project.inlang --outdir ./src/lib/paraglide --emit-ts-declarations --strategy localStorage preferredLanguage baseLocale",
+    "dev": "deno run -A npm:vite dev",
+    "build": "deno run -A npm:vite build",
+    "preview": "deno run -A npm:vite preview",
+    "check": "deno task i18n && deno check src/ && deno run -A npm:svelte-check@^4 --tsconfig ./tsconfig.json",
+    "test": "deno test -A tests/ --ignore=tests/vitest",
+    "test:unit": "deno run -A npm:vitest@^5 run",
+    "test:e2e": "deno test -A e2e/",
+    "fmt": "deno fmt && deno run -A tools/fmt_svelte.ts src/routes src/lib",
+    "lint": "deno lint",
+    "openapi": "deno run -A npm:openapi-typescript ../docs/openapi.json -o src/lib/api/generated.ts --default-non-nullable false"
+  },
+  "imports": {
+    "vite": "npm:vite@^8.0.16",
+    "svelte": "npm:svelte@^5.56.1",
+    "tailwindcss": "npm:tailwindcss@^4.1.0",
+    "@tailwindcss/vite": "npm:@tailwindcss/vite@^4.1.0",
+    "@sveltejs/kit": "npm:@sveltejs/kit@^2.63.0",
+    "@sveltejs/kit/vite": "npm:@sveltejs/kit@^2.63.0/vite",
+    "@sveltejs/kit/internal": "npm:@sveltejs/kit@^2.63.0/internal",
+    "@sveltejs/kit/internal/server": "npm:@sveltejs/kit@^2.63.0/internal/server",
+    "@sveltejs/adapter-static": "npm:@sveltejs/adapter-static@^3.0.0",
+    "@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^7.1.2",
+    "vitest": "npm:vitest@^5.0.1",
+    "jsdom": "npm:jsdom@^26.0.0",
+    "@std/assert": "jsr:@std/assert@^1",
+    "@std/testing": "jsr:@std/testing@^1",
+    "@std/expect": "jsr:@std/expect@^1",
+    "playwright": "npm:playwright@^1.63.0",
+    "prettier": "npm:prettier@^3",
+    "prettier-plugin-svelte": "npm:prettier-plugin-svelte@^3",
+    "@inlang/paraglide-js": "npm:@inlang/paraglide-js@^2",
+    "openapi-fetch": "npm:openapi-fetch@0.14.0",
+    "openapi-typescript": "npm:openapi-typescript@7.9.1"
   }
 }

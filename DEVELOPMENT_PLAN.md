@@ -33,7 +33,7 @@
 | 1 | Dominio y datos | ✅ cerrada | ✅ |
 | 2 | Núcleo del agente | ✅ cerrada | ✅ |
 | 3 | API | ✅ cerrada | ✅ |
-| 4 | Frontend | ⬜ pendiente | ⬜ |
+| 4 | Frontend | 🔵 en curso | ⬜ |
 | 5 | Migración de datos | ⬜ pendiente | ⬜ |
 | 6 | Endurecimiento y corte | ⬜ pendiente | ⬜ |
 | 7 | Extensiones | ⬜ opcional | ⬜ |
@@ -108,13 +108,14 @@ que cada una bloquea: **no se empieza una fase con su decisión abierta.**
 | D6 | Identidad del usuario (una tabla `users`) | ✅ resuelta | — |
 | D7 | Consolidación: `N=1`, techo 40% del contexto, memoria al final | ✅ resuelta | — |
 | D8 | SvelteKit en modo SPA | ✅ resuelta | — |
-| D9 | Librería i18n |  abierta | Fase 4 |
+| D9 | Librería i18n (Paraglide JS) | ✅ resuelta | — |
 | D10 | Borrar hilo no toca la memoria | ✅ resuelta | — |
 | D11 | BD de test: esquema efímero | ✅ resuelta | — |
 | D12 | Avatar en almacenamiento local | ✅ resuelta | — |
 | D13 | Alta de usuarios: registro público | ✅ resuelta | — |
 | D14 | Cola en Postgres (`SKIP LOCKED`) | ✅ resuelta | — |
 | D15 | Proveedor y modelo por variables de entorno (OpenAI-compatible) | ✅ resuelta | — |
+| D16 | Lectura del historial de un hilo (`GET messages`) | ✅ resuelta | — |
 
 Cuando una decisión se implementa, se convierte en ADR en `docs/adr/`
 (`0000-template.md` es la plantilla).
@@ -410,29 +411,70 @@ cuando exista la aplicación frontend completa.
 **Gate de entrada:** Fase 3 con el OpenAPI de `auth`/`threads`/`chat` congelado;
 **D9** cerrada.
 
-**Tareas**
+**Tareas** — en curso desde el 2026-09-23.
 
-- [ ] SvelteKit sobre **Deno** (`deno.json` + `deno.lock`, sin Node ni npm) con
-      `adapter-static` en modo **SPA** (D8) y salida servida por FastAPI (D4); Tailwind por
-      build de Vite (**no CDN**); layout con traslado del script anti-parpadeo de tema.
-- [ ] Configuración de Deno según S6 y el ADR `0018`: `nodeModulesDir: "auto"` (sin esto el
-      build falla), tareas `dev`/`build`/`check`/`test`, y un script de Deno que formatee los
-      `.svelte` con Prettier **como librería** (`deno fmt` los ignora en silencio).
+- [x] SvelteKit sobre **Deno** (`deno.json` + `deno.lock`, sin Node ni npm) con
+      `adapter-static` en modo **SPA** (D8, `fallback: '200.html'`); Tailwind por build de Vite
+      (**no CDN**); layout con traslado del script anti-parpadeo de tema; **FastAPI sirve
+      `build/`** en el mismo origen (D4).
+- [x] Configuración de Deno según S6 y el ADR `0018`: `nodeModulesDir: "auto"` (sin esto el
+      build falla), tareas `sync`/`dev`/`build`/`preview`/`check`/`test`/`test:unit`/`test:e2e`/
+      `fmt`/`lint`, y `tools/fmt_svelte.ts` que formatea los `.svelte` con Prettier **como
+      librería** (`deno fmt` los ignora en silencio).
 - [ ] Tests de componentes con `mount()` de Svelte (**no** `@testing-library/svelte`, que no
-      funciona bajo Deno) y Vitest con `resolve.conditions: ['browser']` (S6).
-- [ ] Cliente generado (`openapi-typescript` + `openapi-fetch`) + capa de errores tipada.
-      Ningún `fetch` ad-hoc.
-- [ ] `lib/chat/`: `Chat`, `Composer`, `MessageBubble`; streaming SSE; estados
+      funciona bajo Deno) y Vitest con `resolve.conditions: ['browser']` (S6). *Config y
+      convención listas; faltan los tests de componente.*
+- [x] Cliente generado (`openapi-typescript` + `openapi-fetch`) + capa de errores tipada
+      (`lib/api/errors.ts`). Ningún `fetch` ad-hoc.
+- [x] `lib/chat/`: `Chat`, `Composer`, `MessageBubble`; streaming SSE; estados
       (escribiendo, error, reintento); hilos (listar/crear/renombrar/borrar).
-- [ ] Skins `Web`, `Whatsapp`, `Telegram` — **solo cáscara visual** (A10/D3). Telegram
+- [x] Skins `Web`, `Whatsapp`, `Telegram` — **solo cáscara visual** (A10/D3). Telegram
       expone los comandos `/start`, `/bases`, `/memoria` como atajos, no como lógica propia.
-- [ ] i18n (D9): port de las claves de `i18n*.js` a los 6 idiomas + **test de paridad de
-      claves** entre idiomas.
-- [ ] Rutas `(auth)/login`, `admin/*`, `web|whatsapp|telegram/[agent]`.
+- [x] i18n (D9): port de las claves de `i18n*.js` a los 6 idiomas + **test de paridad de
+      claves** entre idiomas. **464 claves × 6 locales**, portadas con `scripts/port_i18n.ts`.
+- [ ] Rutas `(auth)/login`, `admin/*`, `web|whatsapp|telegram/[agent]`. *`login` y las tres
+      skins hechas; falta `admin/*`.*
 - [ ] Dashboard `admin`: agentes, roles, fuentes, usuarios, transcripciones.
 - [ ] Tests: `deno check` / `svelte-check`, unit de `Chat` con API mockeada, y smoke E2E con
-      Playwright bajo Deno (S6 confirmó que funciona, incluido el runner).
-- [ ] Formato y lint con `deno fmt` y `deno lint` (sin ESLint ni Prettier).
+      Playwright bajo Deno (S6 confirmó que funciona, incluido el runner). *`check` y el test
+      del parser SSE hechos; faltan el unit de `Chat` y el E2E.*
+- [x] Formato y lint con `deno fmt` y `deno lint` (sin ESLint ni Prettier).
+
+**Notas de progreso (2026-09-23)**
+
+- **D9 cerrada:** Paraglide JS (ADR `0019`). La propuesta §14 y el plan §3 la reflejan.
+- **Andamiaje entregado:** `deno.json` (tareas e import map), `vite.config.ts` (SPA +
+  Tailwind + Paraglide), `tsconfig.json`, `vitest.config.ts`, `src/app.html` (script
+  anti-parpadeo), `src/app.css`, `src/routes/+layout.{ts,svelte}`, `src/routes/+page.svelte`,
+  `src/lib/theme.ts`, `tools/fmt_svelte.ts`, `project.inlang/settings.json` y las 6 locales
+  en `messages/`.
+- **i18n portada:** `scripts/port_i18n.ts` extrae `TRANSLATIONS`/`mine` de los 9 `i18n*.js`
+  del proyecto anterior (solo lectura) y escribe **464 claves × 6 locales** con claves planas
+  `grupo_clave`. La task `i18n` compila Paraglide y `check` la ejecuta antes del typecheck
+  (Paraglide solo compilaba en `build`/`dev`).
+- **D4 entregado:** `app/spa.py` monta el build de `adapter-static` en `/` (solo si existe
+  `index.html`), con *fallback* a `200.html` y `/api/...` excluido para que un endpoint
+  inexistente siga siendo 404. Verificado con uvicorn: `/` y `/web/1` → 200, `/healthz` y
+  `/openapi.json` → 200, `/api/v1/nope` → 404.
+- **D16 registrada e implementada:** `GET /api/v1/threads/{id}/messages` lee el transcript
+  del checkpointer vía `agent/service.py` (ADR `0020`). Snapshot de OpenAPI y cliente TS
+  regenerados; `106 passed` en el backend.
+- **Chat entregado:** `lib/chat/` (`Chat`, `Composer`, `MessageBubble`) con streaming SSE
+  (`lib/api/chat.ts` + parser puro `lib/chat/sse.ts`), hilos (listar/crear/borrar) y las tres
+  skins (`Web`, `Whatsapp`, `Telegram`) como cáscara visual. Rutas `login`,
+  `web|whatsapp|telegram/[agent]` y guarda de sesión en el layout.
+- **Smoke end-to-end verificado:** login → agentes → hilo → **SSE con tokens reales del
+  proveedor** (60 eventos) → historial con `user`+`assistant` (D16) → borrado del hilo.
+- **Nota de tooling:** `deno check` exige la extensión `.ts` en los imports y `svelte-check`
+  la prohíbe; se resolvió con `allowImportingTsExtensions` en `tsconfig.json`. El cliente
+  generado usa `--default-non-nullable false` para que los campos con `default` sean
+  opcionales.
+- **Convención de tests:** `tests/` (Deno test, incluye la paridad de claves i18n),
+  `tests/vitest/` (componentes con `mount()`), `e2e/` (Playwright).
+- **Verificado (2026-09-23):** `deno install --frozen`, `deno fmt --check`, `deno lint`,
+  `deno task sync`, `deno task check` (0 errores), `deno task test` (2 passed),
+  `deno task test:unit` (2 passed) y `deno task build` (SPA en `build/`: `200.html` +
+  `index.html`). **R11 resuelto:** Paraglide compila bajo Deno.
 
 **DoD:** flujo login → dashboard → chat (3 skins) → logout sin errores de tipo; paridad de
 claves i18n en los 6 idiomas; E2E smoke verde con Playwright bajo Deno (S6).

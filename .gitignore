@@ -13,6 +13,10 @@ dist/
 build/
 .tmp/
 
+# i18n generado por Paraglide (ADR 0019) y caché de inlang
+frontend/src/lib/paraglide/
+frontend/project.inlang/cache/
+
 # Secretos y configuración local
 .env
 .env.local

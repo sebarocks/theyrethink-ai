@@ -3,7 +3,7 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from typing import cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -23,12 +23,45 @@ class ChatRequest(BaseModel):
     text: str = Field(min_length=1, max_length=32_000)
 
 
+class MessageResponse(BaseModel):
+    """Mensaje del transcript (D16). Solo `user`/`assistant`."""
+
+    role: Literal["user", "assistant"]
+    text: str
+
+
 def get_agent_service(request: Request) -> AgentService:
     return request.app.state.agent_service
 
 
 def _event(event: str, data: dict[str, object]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _thread_not_found() -> HTTPException:
+    return HTTPException(
+        status.HTTP_404_NOT_FOUND,
+        detail={
+            "error": "not_found",
+            "code": "thread_not_found",
+            "detail": "El hilo no existe.",
+        },
+    )
+
+
+@router.get("/{thread_id}/messages", response_model=list[MessageResponse])
+async def list_messages(
+    thread_id: int,
+    user: User = CurrentUser,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+    service: AgentService = Depends(get_agent_service),  # noqa: B008
+) -> list[MessageResponse]:
+    """Transcript del hilo, leido del checkpointer via `agent/service.py` (D16)."""
+    thread = await db.get(Thread, thread_id)
+    if thread is None or thread.user_id != ensure_user_id(user):
+        raise _thread_not_found()
+    messages = await service.read_messages(thread_id=thread_id)
+    return [MessageResponse(role=message.role, text=message.text) for message in messages]
 
 
 @router.post("/{thread_id}/messages")
@@ -42,14 +75,7 @@ async def send_message(
     thread = await db.get(Thread, thread_id)
     user_id = ensure_user_id(user)
     if thread is None or thread.user_id != user_id:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": "not_found",
-                "code": "thread_not_found",
-                "detail": "El hilo no existe.",
-            },
-        )
+        raise _thread_not_found()
 
     async def produce(queue: asyncio.Queue[tuple[str, object]]) -> None:
         try:
