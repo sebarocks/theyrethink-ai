@@ -11,5 +11,6 @@ def test_catalog_routes_include_reads_mutations_and_associations() -> None:
     assert ("/roles/{role_id}", frozenset({"DELETE"})) in routes
     assert ("/sources", frozenset({"GET"})) in routes
     assert ("/sources", frozenset({"POST"})) in routes
+    assert ("/agents/{agent_id}/sources", frozenset({"GET"})) in routes
     assert ("/agents/{agent_id}/sources/{source_id}", frozenset({"PUT"})) in routes
     assert ("/agents/{agent_id}/sources/{source_id}", frozenset({"DELETE"})) in routes

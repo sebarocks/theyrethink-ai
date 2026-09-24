@@ -1,6 +1,66 @@
 {
   "components": {
     "schemas": {
+      "AdminThreadResponse": {
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "integer"
+          },
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_preview": {
+            "title": "Last Preview",
+            "type": "string"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "agent_name",
+          "user_id",
+          "username",
+          "title",
+          "message_count",
+          "last_preview",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminThreadResponse",
+        "type": "object"
+      },
       "AgentCreate": {
         "properties": {
           "custom_identity": {
@@ -120,6 +180,58 @@
         "title": "AgentSourceResponse",
         "type": "object"
       },
+      "AgentUpdate": {
+        "properties": {
+          "custom_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Identity"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "role_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Key"
+          }
+        },
+        "title": "AgentUpdate",
+        "type": "object"
+      },
       "Body_upload_avatar_api_v1_agents__agent_id__avatar_post": {
         "properties": {
           "file": {
@@ -201,6 +313,63 @@
           "text"
         ],
         "title": "MessageResponse",
+        "type": "object"
+      },
+      "ProfileUpdate": {
+        "description": "Edición del perfil propio (D19). El rol no se cambia aquí (eso es D17).",
+        "properties": {
+          "current_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "new_password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Password"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "ProfileUpdate",
         "type": "object"
       },
       "RegisterRequest": {
@@ -529,6 +698,78 @@
         "title": "ThreadUpdate",
         "type": "object"
       },
+      "UserAdminResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "email",
+          "role",
+          "created_at"
+        ],
+        "title": "UserAdminResponse",
+        "type": "object"
+      },
+      "UserCreate": {
+        "properties": {
+          "email": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "role": {
+            "default": "usuario",
+            "enum": [
+              "admin",
+              "usuario"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "title": "UserCreate",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "email": {
@@ -555,6 +796,66 @@
           "role"
         ],
         "title": "UserResponse",
+        "type": "object"
+      },
+      "UserUpdate": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "admin",
+                  "usuario"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "UserUpdate",
         "type": "object"
       },
       "ValidationError": {
@@ -605,6 +906,138 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/threads": {
+      "get": {
+        "operationId": "list_all_threads_api_v1_admin_threads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminThreadResponse"
+                  },
+                  "title": "Response List All Threads Api V1 Admin Threads Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List All Threads",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/threads/{thread_id}/messages": {
+      "get": {
+        "description": "Transcript de cualquier hilo, leído del checkpointer (D16/D18).",
+        "operationId": "list_thread_messages_api_v1_admin_threads__thread_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MessageResponse"
+                  },
+                  "title": "Response List Thread Messages Api V1 Admin Threads  Thread Id  Messages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Thread Messages",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "operationId": "list_agents_api_v1_agents_get",
@@ -716,6 +1149,55 @@
       }
     },
     "/api/v1/agents/{agent_id}": {
+      "delete": {
+        "operationId": "delete_agent_api_v1_agents__agent_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Agent",
+        "tags": [
+          "agents"
+        ]
+      },
       "get": {
         "operationId": "get_agent_api_v1_agents__agent_id__get",
         "parameters": [
@@ -768,6 +1250,72 @@
           }
         },
         "summary": "Get Agent",
+        "tags": [
+          "agents"
+        ]
+      },
+      "patch": {
+        "operationId": "update_agent_api_v1_agents__agent_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Agent",
         "tags": [
           "agents"
         ]
@@ -941,6 +1489,69 @@
         "summary": "Upload Avatar",
         "tags": [
           "agents"
+        ]
+      }
+    },
+    "/api/v1/agents/{agent_id}/sources": {
+      "get": {
+        "description": "Fuentes asociadas a un agente; alimenta el editor del dashboard (D18).",
+        "operationId": "list_agent_sources_api_v1_agents__agent_id__sources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceResponse"
+                  },
+                  "title": "Response List Agent Sources Api V1 Agents  Agent Id  Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Agent Sources",
+        "tags": [
+          "catalogs"
         ]
       }
     },
@@ -1199,6 +1810,64 @@
           }
         },
         "summary": "Me",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "Actualiza el perfil propio (D19): nombre, correo y/o contraseña.",
+        "operationId": "update_me_api_v1_auth_me_patch",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Me",
         "tags": [
           "auth"
         ]
@@ -2051,6 +2720,233 @@
         "summary": "Send Message",
         "tags": [
           "chat"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "list_users_api_v1_users_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserAdminResponse"
+                  },
+                  "title": "Response List Users Api V1 Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "create_user_api_v1_users_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "delete": {
+        "operationId": "delete_user_api_v1_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete User",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "update_user_api_v1_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update User",
+        "tags": [
+          "users"
         ]
       }
     },

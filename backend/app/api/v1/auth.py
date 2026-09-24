@@ -28,6 +28,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ProfileUpdate(BaseModel):
+    """Edición del perfil propio (D19). El rol no se cambia aquí (eso es D17)."""
+
+    username: str | None = Field(default=None, min_length=3, max_length=64)
+    email: str | None = Field(default=None, min_length=3, max_length=255)
+    current_password: str | None = None
+    new_password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -117,4 +126,43 @@ async def logout(
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = CurrentUser) -> User:
     """Devuelve la identidad autenticada."""
+    return user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    payload: ProfileUpdate,
+    user: User = CurrentUser,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> User:
+    """Actualiza el perfil propio (D19): nombre, correo y/o contraseña."""
+    if payload.username is not None or payload.email is not None:
+        conditions = []
+        if payload.username is not None:
+            conditions.append(User.username == payload.username)
+        if payload.email is not None:
+            conditions.append(User.email == payload.email)
+        query = select(User).where(or_(*conditions), User.id != user.id)
+        if (await db.execute(query)).first() is not None:
+            raise auth_error(
+                "identity_already_exists",
+                "El usuario o correo ya está registrado.",
+                status.HTTP_409_CONFLICT,
+            )
+    if payload.new_password is not None:
+        if payload.current_password is None or not verify_password(
+            user.password_hash, payload.current_password
+        ):
+            raise auth_error(
+                "invalid_current_password",
+                "La contraseña actual no es válida.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+        user.password_hash = hash_password(payload.new_password)
+    if payload.username is not None:
+        user.username = payload.username
+    if payload.email is not None:
+        user.email = payload.email
+    await db.commit()
+    await db.refresh(user)
     return user

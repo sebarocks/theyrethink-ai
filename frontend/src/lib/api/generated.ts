@@ -4,6 +4,43 @@
  */
 
 export interface paths {
+    "/api/v1/admin/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List All Threads */
+        get: operations["list_all_threads_api_v1_admin_threads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/threads/{thread_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Thread Messages
+         * @description Transcript de cualquier hilo, leído del checkpointer (D16/D18).
+         */
+        get: operations["list_thread_messages_api_v1_admin_threads__thread_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agents": {
         parameters: {
             query?: never;
@@ -33,10 +70,12 @@ export interface paths {
         get: operations["get_agent_api_v1_agents__agent_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Agent */
+        delete: operations["delete_agent_api_v1_agents__agent_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Agent */
+        patch: operations["update_agent_api_v1_agents__agent_id__patch"];
         trace?: never;
     };
     "/api/v1/agents/{agent_id}/avatar": {
@@ -53,6 +92,26 @@ export interface paths {
         post: operations["upload_avatar_api_v1_agents__agent_id__avatar_post"];
         /** Delete Avatar */
         delete: operations["delete_avatar_api_v1_agents__agent_id__avatar_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{agent_id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Agent Sources
+         * @description Fuentes asociadas a un agente; alimenta el editor del dashboard (D18).
+         */
+        get: operations["list_agent_sources_api_v1_agents__agent_id__sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -133,7 +192,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Me
+         * @description Actualiza el perfil propio (D19): nombre, correo y/o contraseña.
+         */
+        patch: operations["update_me_api_v1_auth_me_patch"];
         trace?: never;
     };
     "/api/v1/auth/register": {
@@ -285,6 +348,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Users */
+        get: operations["list_users_api_v1_users_get"];
+        put?: never;
+        /** Create User */
+        post: operations["create_user_api_v1_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete User */
+        delete: operations["delete_user_api_v1_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update User */
+        patch: operations["update_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -329,6 +428,35 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminThreadResponse */
+        AdminThreadResponse: {
+            /** Agent Id */
+            agent_id: number;
+            /** Agent Name */
+            agent_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Last Preview */
+            last_preview: string;
+            /** Message Count */
+            message_count: number;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** User Id */
+            user_id: number;
+            /** Username */
+            username: string;
+        };
         /** AgentCreate */
         AgentCreate: {
             /** Custom Identity */
@@ -365,6 +493,17 @@ export interface components {
             /** Source Id */
             source_id: number;
         };
+        /** AgentUpdate */
+        AgentUpdate: {
+            /** Custom Identity */
+            custom_identity?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Profile */
+            profile?: string | null;
+            /** Role Key */
+            role_key?: string | null;
+        };
         /** Body_upload_avatar_api_v1_agents__agent_id__avatar_post */
         Body_upload_avatar_api_v1_agents__agent_id__avatar_post: {
             /** File */
@@ -399,6 +538,20 @@ export interface components {
             role: "user" | "assistant";
             /** Text */
             text: string;
+        };
+        /**
+         * ProfileUpdate
+         * @description Edición del perfil propio (D19). El rol no se cambia aquí (eso es D17).
+         */
+        ProfileUpdate: {
+            /** Current Password */
+            current_password?: string | null;
+            /** Email */
+            email?: string | null;
+            /** New Password */
+            new_password?: string | null;
+            /** Username */
+            username?: string | null;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -525,6 +678,37 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** UserAdminResponse */
+        UserAdminResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Email */
+            email: string;
+            /** Id */
+            id: number;
+            /** Role */
+            role: string;
+            /** Username */
+            username: string;
+        };
+        /** UserCreate */
+        UserCreate: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+            /**
+             * Role
+             * @default usuario
+             * @enum {string}
+             */
+            role?: "admin" | "usuario";
+            /** Username */
+            username: string;
+        };
         /** UserResponse */
         UserResponse: {
             /** Email */
@@ -535,6 +719,17 @@ export interface components {
             role: string;
             /** Username */
             username: string;
+        };
+        /** UserUpdate */
+        UserUpdate: {
+            /** Email */
+            email?: string | null;
+            /** Password */
+            password?: string | null;
+            /** Role */
+            role?: ("admin" | "usuario") | null;
+            /** Username */
+            username?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -558,6 +753,72 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_all_threads_api_v1_admin_threads_get: {
+        parameters: {
+            query?: {
+                agent_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminThreadResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_thread_messages_api_v1_admin_threads__thread_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_agents_api_v1_agents_get: {
         parameters: {
             query?: never;
@@ -636,6 +897,74 @@ export interface operations {
             };
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_agent_api_v1_agents__agent_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_agent_api_v1_agents__agent_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -746,6 +1075,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_agent_sources_api_v1_agents__agent_id__sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceResponse"][];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -896,6 +1258,41 @@ export interface operations {
             };
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_me_api_v1_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1409,6 +1806,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminResponse"];
                 };
             };
             /** @description Validation Error */

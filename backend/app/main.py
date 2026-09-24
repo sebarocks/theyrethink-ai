@@ -12,11 +12,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.agent.runtime import agent_runtime
+from app.api.v1.admin import router as admin_router
 from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.catalogs import router as catalogs_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.threads import router as threads_router
+from app.api.v1.users import router as users_router
 from app.config import get_settings
 from app.db import ping_database
 from app.spa import mount_spa
@@ -80,6 +82,8 @@ def create_app() -> FastAPI:
     app.include_router(catalogs_router, prefix="/api/v1")
     app.include_router(threads_router, prefix="/api/v1")
     app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
 
     @app.get("/healthz", tags=["operational"], summary="Proceso vivo")
     async def healthz() -> dict[str, str]:

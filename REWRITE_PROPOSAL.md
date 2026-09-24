@@ -610,6 +610,22 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
   nunca con SQL propio (`AGENTS.md` §3.3). Solo se exponen los mensajes `user`/`assistant`:
   el `system_prompt` y la memoria inyectada no son conversación (D7). Necesario para reanudar
   un hilo en la UI y para las transcripciones del dashboard. Ver ADR `0020`.
+- **D17 — Gestión de usuarios → router `users` solo para administradores.** El dashboard
+  necesita algo más que el registro público (D13): listar, crear, editar (nombre, correo, rol
+  y contraseña) y borrar cuentas. Todo endpoint mutador exige `require_admin`, la contraseña
+  se hashea con Argon2 y nunca se expone. Salvaguardas contra el auto-bloqueo: un
+  administrador **no** puede eliminarse ni degradar su propio rol (409). Unicidad de
+  `username`/`email` ⇒ 409. Ver ADR `0021`.
+- **D18 — Vista admin de transcripciones → router `admin` solo para administradores.**
+  `GET /api/v1/admin/threads` (todas las conversaciones, con nombre de agente y de usuario,
+  filtro opcional por agente) y `GET /api/v1/admin/threads/{id}/messages`. El transcript se
+  lee del **checkpointer** vía `agent/service.py` (D16), nunca con SQL propio. Es la vista de
+  auditoría del dashboard; el router de usuario (`/threads`) sigue limitado a la pertenencia.
+  Ver ADR `0021`.
+- **D19 — Edición del perfil propio → `PATCH /api/v1/auth/me`.** El usuario autenticado puede
+  actualizar su `username`, su `email` y su contraseña. Cambiar la contraseña exige la
+  contraseña actual (`current_password`); la nueva se hashea con Argon2. Unicidad ⇒ 409.
+  No permite cambiar el propio rol (eso es D17). Ver ADR `0021`.
 
 ### Abiertas
 

@@ -31,6 +31,14 @@
 >
   <a href="/" class="font-bold tracking-tight">{m.common_appName()}</a>
   <div class="flex items-center gap-3 text-sm">
+    {#if $session.user?.role === "admin"}
+      <a
+        href="/admin"
+        class="rounded px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
+        {m.common_dashboard()}
+      </a>
+    {/if}
     <nav class="flex gap-1" aria-label={m.common_selectLanguage()}>
       {#each locales as locale (locale)}
         <button

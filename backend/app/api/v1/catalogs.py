@@ -188,6 +188,27 @@ async def delete_source(
     await db.commit()
 
 
+@router.get("/agents/{agent_id}/sources", response_model=list[SourceResponse])
+async def list_agent_sources(
+    agent_id: int,
+    _user: User = CurrentUser,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> list[KnowledgeSource]:
+    """Fuentes asociadas a un agente; alimenta el editor del dashboard (D18)."""
+    if await db.get(Agent, agent_id) is None:
+        raise _not_found("agent_not_found", "El agente no existe.")
+    return list(
+        (
+            await db.execute(
+                select(KnowledgeSource)
+                .join(AgentSource, AgentSource.source_id == KnowledgeSource.id)
+                .where(AgentSource.agent_id == agent_id)
+                .order_by(KnowledgeSource.name)
+            )
+        ).scalars()
+    )
+
+
 @router.put("/agents/{agent_id}/sources/{source_id}", response_model=AgentSourceResponse)
 async def attach_source(
     agent_id: int,

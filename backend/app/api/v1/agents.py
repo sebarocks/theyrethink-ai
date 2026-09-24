@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser, RequireAdmin
 from app.config import get_settings
 from app.db import get_session
-from app.models import Agent, User
+from app.models import Agent, Role, User
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
@@ -70,6 +71,32 @@ def _avatar_path(agent: Agent) -> Path | None:
     return path if path.is_file() else None
 
 
+def _name_conflict() -> HTTPException:
+    return HTTPException(
+        status.HTTP_409_CONFLICT,
+        detail={
+            "error": "conflict",
+            "code": "agent_name_taken",
+            "detail": "El nombre del agente ya existe.",
+        },
+    )
+
+
+async def _ensure_role(db: AsyncSession, role_key: str | None) -> None:
+    if role_key is None:
+        return
+    found = (await db.execute(select(Role).where(Role.key == role_key))).scalar_one_or_none()
+    if found is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "not_found",
+                "code": "role_not_found",
+                "detail": "El rol no existe.",
+            },
+        )
+
+
 class AgentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -84,6 +111,13 @@ class AgentResponse(BaseModel):
 class AgentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     profile: str = ""
+    role_key: str | None = None
+    custom_identity: str | None = None
+
+
+class AgentUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    profile: str | None = None
     role_key: str | None = None
     custom_identity: str | None = None
 
@@ -189,8 +223,52 @@ async def create_agent(
     _admin: User = RequireAdmin,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> Agent:
+    await _ensure_role(db, payload.role_key)
     agent = Agent(**payload.model_dump())
     db.add(agent)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise _name_conflict() from exc
     await db.refresh(agent)
     return agent
+
+
+@router.patch("/{agent_id}", response_model=AgentResponse)
+async def update_agent(
+    agent_id: int,
+    payload: AgentUpdate,
+    _admin: User = RequireAdmin,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> Agent:
+    agent = await db.get(Agent, agent_id)
+    if agent is None:
+        raise _agent_not_found()
+    changes = payload.model_dump(exclude_unset=True)
+    await _ensure_role(db, changes.get("role_key"))
+    for key, value in changes.items():
+        setattr(agent, key, value)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise _name_conflict() from exc
+    await db.refresh(agent)
+    return agent
+
+
+@router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_agent(
+    agent_id: int,
+    _admin: User = RequireAdmin,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> None:
+    agent = await db.get(Agent, agent_id)
+    if agent is None:
+        raise _agent_not_found()
+    path = _avatar_path(agent)
+    await db.delete(agent)
+    await db.commit()
+    if path is not None:
+        path.unlink(missing_ok=True)

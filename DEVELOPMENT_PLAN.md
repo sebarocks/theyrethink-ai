@@ -116,6 +116,9 @@ que cada una bloquea: **no se empieza una fase con su decisión abierta.**
 | D14 | Cola en Postgres (`SKIP LOCKED`) | ✅ resuelta | — |
 | D15 | Proveedor y modelo por variables de entorno (OpenAI-compatible) | ✅ resuelta | — |
 | D16 | Lectura del historial de un hilo (`GET messages`) | ✅ resuelta | — |
+| D17 | Gestión de usuarios por administrador (`users`) | ✅ resuelta | — |
+| D18 | Vista admin de transcripciones (`admin`) | ✅ resuelta | — |
+| D19 | Edición del perfil propio (`PATCH /auth/me`) | ✅ resuelta | — |
 
 Cuando una decisión se implementa, se convierte en ADR en `docs/adr/`
 (`0000-template.md` es la plantilla).
@@ -431,14 +434,32 @@ cuando exista la aplicación frontend completa.
 - [x] Skins `Web`, `Whatsapp`, `Telegram` — **solo cáscara visual** (A10/D3). Telegram
       expone los comandos `/start`, `/bases`, `/memoria` como atajos, no como lógica propia.
 - [x] i18n (D9): port de las claves de `i18n*.js` a los 6 idiomas + **test de paridad de
-      claves** entre idiomas. **464 claves × 6 locales**, portadas con `scripts/port_i18n.ts`.
-- [ ] Rutas `(auth)/login`, `admin/*`, `web|whatsapp|telegram/[agent]`. *`login` y las tres
-      skins hechas; falta `admin/*`.*
-- [ ] Dashboard `admin`: agentes, roles, fuentes, usuarios, transcripciones.
-- [ ] Tests: `deno check` / `svelte-check`, unit de `Chat` con API mockeada, y smoke E2E con
-      Playwright bajo Deno (S6 confirmó que funciona, incluido el runner). *`check` y el test
-      del parser SSE hechos; faltan el unit de `Chat` y el E2E.*
+      claves** entre idiomas. **466 claves × 6 locales**, portadas con `scripts/port_i18n.ts`
+      (`admin_currentPasswordLabel` añadida en la Fase 4).
+- [x] Rutas `(auth)/login`, `admin/*`, `web|whatsapp|telegram/[agent]`. *`login`, las tres
+      skins y el dashboard `admin/*` hechos.*
+- [x] Dashboard `admin`: agentes, roles, fuentes, usuarios, transcripciones y cuenta propia.
+      Respaldado por D17/D18/D19 (ADR `0021`) y los endpoints `users`, `admin`, `PATCH/DELETE
+      /agents` y `PATCH /auth/me`.
+- [ ] Tests: `deno check` / `svelte-check` (verde), unit de `Chat` con API mockeada y smoke E2E
+      con Playwright bajo Deno (S6 confirmó que funciona, incluido el runner). *`check` y el
+      test del parser SSE hechos; faltan el unit de `Chat` y el E2E.*
 - [x] Formato y lint con `deno fmt` y `deno lint` (sin ESLint ni Prettier).
+
+**Notas de progreso (2026-09-24)**
+
+- **Decisiones D17/D18/D19 registradas** en la propuesta §14 y el plan §3, con ADR `0021`:
+  gestión de usuarios por admin, vista admin de transcripciones y perfil propio.
+- **Backend ampliado:** routers `users` (CRUD admin, con salvaguarda anti auto-bloqueo) y
+  `admin` (todas las conversaciones + transcripciones, con filtro `?agent_id=`), `PATCH`/
+  `DELETE` de agentes, `GET /agents/{id}/sources` (lectura de asociaciones) y
+  `PATCH /auth/me`. OpenAPI, snapshot y cliente TS regenerados; `128 passed` en el backend.
+- **Dashboard `/admin/*` entregado:** layout con guarda de rol admin y navegación, resumen
+  con KPIs, y CRUD de agentes (incluye avatar y asociación de fuentes), roles, fuentes,
+  usuarios, transcripciones (filtro por agente + explorador de mensajes) y cuenta propia.
+  `deno check`/`svelte-check` en 0 errores; `deno task test` (7) y `test:unit` (2) verdes;
+  `deno task build` OK.
+- **Pendiente de la fase:** unit de `Chat` con API mockeada y smoke E2E con Playwright.
 
 **Notas de progreso (2026-09-23)**
 

@@ -7,12 +7,16 @@ La API usa sesiones por cookie `httpOnly` y mismo origen. Todas las rutas `/api/
 |---|---|---|---|
 | `auth/register` | pública | pública | Crea siempre `usuario` |
 | `auth/login` | pública | pública | Crea una sesión revocable |
-| `auth/me` | usuario | — | Solo la sesión actual |
+| `auth/me` | usuario | usuario | Solo la sesión actual; `PATCH` edita el perfil propio (D19) |
 | `auth/logout` | usuario | usuario | Revoca las sesiones del usuario |
 | `agents` | usuario | admin | Un agente inexistente devuelve `404` |
+| `agents/{id}` escritura | — | admin | `PATCH`/`DELETE`; nombre duplicado ⇒ `409` |
 | `roles` | usuario | admin | Un rol inexistente devuelve `404` |
 | `sources` | usuario | admin | Una fuente inexistente devuelve `404` |
-| asociaciones agente-fuente | usuario | admin | Agente/fuente inexistente devuelve `404` |
+| asociaciones agente-fuente | usuario | admin | Agente/fuente inexistente devuelve `404`; `GET /agents/{id}/sources` lee, `PUT`/`DELETE` mutan |
+| `users` | admin | admin | Solo administradores; no puede autoeliminarse ni auto-degradarse (`409`) |
+| `admin/threads` | admin | — | Lista todas las conversaciones; filtro `?agent_id=` |
+| `admin/threads/{id}/messages` | admin | — | Transcript de cualquier hilo (D16/D18) |
 | `threads` | propietario | propietario | Un hilo ajeno se oculta como `404` |
 | `chat` | propietario | propietario | Un hilo ajeno se oculta como `404` |
 | `agents/{id}/avatar` lectura | usuario | — | Agente/avatar inexistente devuelve `404` |

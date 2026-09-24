@@ -3,6 +3,7 @@ import { toApiError } from "./errors.ts";
 import type { components } from "./generated.ts";
 
 export type User = components["schemas"]["UserResponse"];
+export type ProfileUpdate = components["schemas"]["ProfileUpdate"];
 
 export async function login(username: string, password: string): Promise<User> {
   const { data, error, response } = await api.POST("/api/v1/auth/login", {
@@ -34,5 +35,14 @@ export async function me(): Promise<User | null> {
   const { data, response } = await api.GET("/api/v1/auth/me");
   if (response.status === 401) return null;
   if (!response.ok || !data) throw toApiError(response, null);
+  return data;
+}
+
+/** Edita el perfil propio (D19). Devuelve la identidad actualizada. */
+export async function updateProfile(payload: ProfileUpdate): Promise<User> {
+  const { data, error, response } = await api.PATCH("/api/v1/auth/me", {
+    body: payload,
+  });
+  if (error) throw toApiError(response, error);
   return data;
 }

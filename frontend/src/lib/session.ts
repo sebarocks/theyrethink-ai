@@ -36,3 +36,8 @@ export async function signOut(): Promise<void> {
   await apiLogout();
   session.set({ user: null, ready: true });
 }
+
+/** Refleja en el store un cambio de perfil ya confirmado por la API (D19). */
+export function setUser(user: User): void {
+  session.update((state) => ({ ...state, user }));
+}
