@@ -1,8 +1,8 @@
 # S3 — SSE a través de Deno y del cliente generado
 
-- **Fecha:** 2026-09-16
-- **Estado:** 🟡 parcial — la mitad de transporte está verificada; el protocolo se cierra en la Fase 3
-- **Bloquea:** Fase 4 (tooling) y Fase 3 (protocolo)
+- **Fecha:** 2026-09-16 · **cierre:** 2026-09-28
+- **Estado:** ✅ concluido — transporte verificado y protocolo cerrado con el endpoint de la Fase 3
+- **Bloquea:** Fase 3 (protocolo) y Fase 4 (tooling) — ambas cerradas
 - **Ámbito:** Deno 2.9.6 en `frontend/`
 
 ## Pregunta
@@ -52,3 +52,28 @@ Son decisiones de diseño, no incógnitas técnicas, y se resuelven al implement
 
 No requiere más spikes. El punto 2 (forma del error dentro del stream) es el único que conviene
 decidir **antes** de escribir el cliente, porque condiciona el contrato generado.
+
+## Cierre (2026-09-28)
+
+El protocolo se implementó en la Fase 3 (`backend/app/api/v1/chat.py`) y el cliente lo consume
+en la Fase 4 (`frontend/src/lib/api/chat.ts`, parser puro en `frontend/src/lib/chat/sse.ts`).
+Los seis puntos abiertos quedaron resueltos así:
+
+1. **Formato del evento:** `event: chunk` con `data: {"text", "done"}`; `event: done` cierra;
+   `event: heartbeat` con `data: {}` mantiene viva la conexión y lo descarta el parser.
+2. **Errores a mitad de stream:** viajan **dentro** del stream como `event: error` con
+   `data: {"code", "detail"}`, mismo shape `{error, code, detail}` que el envelope REST. El
+   cliente los expone como `{ type: "error" }` sin romper el generador.
+3. **Heartbeat:** emitido cada 15 s mientras se espera un chunk del proveedor
+   (`HEARTBEAT_SECONDS`).
+4. **Cancelación:** el cliente corta con `AbortSignal`; el backend cancela la tarea productora
+   y hace `rollback` de la transacción pendiente. El cierre del turno (`record_turn` + `commit`
+   + `done`) solo ocurre cuando el proveedor termina.
+5. **Reconexión:** reintento simple en v1; **sin** `Last-Event-ID`.
+6. **Cookies:** mismo origen (D4) con `credentials: "include"` en el cliente generado;
+   `SameSite=Lax` basta. Verificado además en el E2E de la Fase 4, que ejerce un turno SSE
+   completo sobre el cliente generado.
+
+El **E2E smoke** (`frontend/e2e/smoke_test.ts`, Playwright bajo Deno) ejerce el flujo
+login → agentes → chat con streaming → skins → logout y cierra la verificación de tooling que
+S3 compartía con S6.

@@ -11,8 +11,8 @@
     "preview": "deno run -A npm:vite preview",
     "check": "deno task i18n && deno check src/ && deno run -A npm:svelte-check@^4 --tsconfig ./tsconfig.json",
     "test": "deno test -A tests/ --ignore=tests/vitest",
-    "test:unit": "deno run -A npm:vitest@^5 run",
-    "test:e2e": "deno test -A e2e/",
+    "test:unit": "deno task i18n && deno run -A npm:vitest@^5 run",
+    "test:e2e": "deno task build && deno test -A e2e/",
     "fmt": "deno fmt && deno run -A tools/fmt_svelte.ts src/routes src/lib",
     "lint": "deno lint",
     "openapi": "deno run -A npm:openapi-typescript ../docs/openapi.json -o src/lib/api/generated.ts --default-non-nullable false"

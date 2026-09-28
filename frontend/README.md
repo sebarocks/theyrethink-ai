@@ -24,7 +24,7 @@ src/lib/paraglide/     # GENERADO por Paraglide; no se versiona
 tools/fmt_svelte.ts    # Prettier como librería para los .svelte
 tests/                 # Deno test (lógica pura: paridad i18n, parser SSE)
 tests/vitest/          # componentes con mount() de Svelte
-e2e/                   # Playwright (Fase 4, pendiente)
+e2e/                   # Playwright + `Deno.serve` (smoke hermético)
 ```
 
 ## Comandos
@@ -85,3 +85,24 @@ script conserva las claves ya presentes, así que re-ejecutarlo no borra trabajo
 posterior.
 
 Ver `DEVELOPMENT_PLAN.md` §5 (Fase 4) y `docs/adr/0018-*`, `docs/adr/0019-*`.
+
+## Tests
+
+| Capa                             | Ruta            | Comando               |
+| -------------------------------- | --------------- | --------------------- |
+| Lógica pura (Deno test)          | `tests/`        | `deno task test`      |
+| Componentes (Vitest + `mount()`) | `tests/vitest/` | `deno task test:unit` |
+| E2E (Playwright bajo Deno)       | `e2e/`          | `deno task test:e2e`  |
+
+El **E2E smoke** (`e2e/smoke_test.ts`) es hermético: `Deno.serve` sirve `build/`
+con el fallback SPA (`200.html`) y las llamadas `/api/v1/**` se interceptan con
+`page.route`. Recorre login → agentes → chat con streaming SSE → las tres skins
+→ logout, sin backend, Postgres ni proveedor LLM. `test:e2e` construye la SPA
+antes de correr; en CI el navegador se instala con
+`deno run -A npm:playwright install --with-deps chromium` y se cachea
+`~/.cache/ms-playwright`.
+
+En los tests de componente, el alias `$lib` se declara en `vitest.config.ts`
+(Vitest no carga el plugin de SvelteKit) y se usa `tick()` de Svelte en vez de
+`flushSync()`: bajo jsdom `flushSync` dispara un evento de otro realm y rompe el
+worker.

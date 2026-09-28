@@ -97,3 +97,15 @@ jobs:
 
       - name: Build
         run: deno task build
+
+      - name: Cache de navegadores de Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/deno.lock') }}
+
+      - name: Instalar Chromium (Playwright)
+        run: deno run -A npm:playwright install --with-deps chromium
+
+      - name: E2E (Playwright)
+        run: deno task test:e2e
