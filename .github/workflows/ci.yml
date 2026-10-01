@@ -1,5 +1,10 @@
 name: CI
 
+# Las actions se fijan a versión completa, no al *major* móvil.
+# Ojo: `astral-sh/setup-uv` y `denoland/setup-deno` NO publican tags móviles de major
+# (`@v10` / `@v2` no existen): solo versiones completas. Un `@v10` falla al resolver la
+# action antes incluso de arrancar el job.
+
 on:
   push:
   pull_request:
@@ -30,10 +35,10 @@ jobs:
       SECRET_KEY: ci-secret-key-with-at-least-32-characters
       DATABASE_URL: postgresql+asyncpg://theyrethink:theyrethink@localhost:5432/theyrethink
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Instalar uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 
@@ -61,15 +66,15 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Instalar Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@v2.0.5
         with:
           deno-version: v2.x
 
       - name: Cache de Deno
-        uses: actions/cache@v4
+        uses: actions/cache@v4.3.0
         with:
           path: ~/.cache/deno
           key: deno-${{ hashFiles('frontend/deno.lock') }}
@@ -99,7 +104,7 @@ jobs:
         run: deno task build
 
       - name: Cache de navegadores de Playwright
-        uses: actions/cache@v4
+        uses: actions/cache@v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('frontend/deno.lock') }}
