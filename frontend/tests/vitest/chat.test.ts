@@ -96,7 +96,11 @@ test("carga el historial y hace streaming de los tokens", async () => {
     expect(target.textContent).toContain("¿qué tal?");
     expect(target.textContent).toContain("Hola");
   });
-  expect(api.streamMessage).toHaveBeenCalledWith(THREAD.id, "¿qué tal?");
+  expect(api.streamMessage).toHaveBeenCalledWith(
+    THREAD.id,
+    "¿qué tal?",
+    expect.any(AbortSignal),
+  );
 });
 
 test("muestra el detalle de un evento de error sin romper el flujo", async () => {
@@ -132,7 +136,76 @@ test("crea un hilo al enviar si todavía no hay ninguno", async () => {
 
   await vi.waitFor(() => {
     expect(api.createThread).toHaveBeenCalledWith(1);
-    expect(api.streamMessage).toHaveBeenCalledWith(THREAD.id, "hola");
+    expect(api.streamMessage).toHaveBeenCalledWith(
+      THREAD.id,
+      "hola",
+      expect.any(AbortSignal),
+    );
     expect(target.textContent).toContain("Hola");
   });
+});
+
+test("aborta el stream al desmontar el componente", async () => {
+  api.listThreads.mockResolvedValue([THREAD]);
+  api.listMessages.mockResolvedValue([]);
+  let captured: AbortSignal | undefined;
+  api.streamMessage.mockImplementation(
+    (_id: number, _text: string, signal?: AbortSignal) => {
+      captured = signal;
+      return (async function* () {
+        await new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+          );
+        });
+        yield { type: "done" as const };
+      })();
+    },
+  );
+
+  render();
+  await vi.waitFor(() => expect(api.listThreads).toHaveBeenCalled());
+  await typeAndSend("hola");
+  await vi.waitFor(() => expect(captured).toBeDefined());
+
+  unmount(instance!);
+  instance = undefined;
+
+  expect(captured!.aborted).toBe(true);
+});
+
+test("no escribe tokens del hilo anterior tras cambiar de hilo", async () => {
+  const other = { ...THREAD, id: 8, title: "Otro hilo" };
+  api.listThreads.mockResolvedValue([THREAD, other]);
+  api.listMessages.mockImplementation((id: number) =>
+    id === other.id ? [{ role: "user", text: "en B" }] : []
+  );
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  api.streamMessage.mockImplementation(async function* () {
+    yield { type: "chunk", text: "A1" };
+    await gate;
+    yield { type: "chunk", text: "A2" };
+  });
+
+  render();
+  await vi.waitFor(() => expect(api.listThreads).toHaveBeenCalled());
+  await typeAndSend("hola");
+  await vi.waitFor(() => expect(target.textContent).toContain("A1"));
+
+  const otherButton = [...target.querySelectorAll("button")].find(
+    (button) => button.textContent?.trim() === "Otro hilo",
+  );
+  expect(otherButton).toBeDefined();
+  otherButton!.click();
+  await vi.waitFor(() => expect(target.textContent).toContain("en B"));
+
+  release();
+  await tick();
+  await tick();
+
+  expect(target.textContent).not.toContain("A2");
 });

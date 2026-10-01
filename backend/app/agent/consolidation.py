@@ -16,7 +16,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.agent.dto import ConsolidationJobDTO
@@ -56,9 +56,18 @@ class ConsolidationQueue(Protocol):
 class PostgresConsolidationQueue:
     """Implementacion sobre la tabla `consolidation_jobs` (D14)."""
 
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession], *, max_attempts: int = 3):
+    def __init__(
+        self,
+        sessionmaker: async_sessionmaker[AsyncSession],
+        *,
+        max_attempts: int = 3,
+        lease_seconds: float = 300.0,
+    ):
         self._sessionmaker = sessionmaker
         self._max_attempts = max_attempts
+        # Un trabajo reclamado no se vuelve a reclamar hasta que expire el *lease*: asi dos
+        # workers no procesan el mismo trabajo a la vez, y un worker caido lo libera solo.
+        self._lease_seconds = lease_seconds
 
     async def enqueue(
         self, session: AsyncSession, *, thread_id: int, agent_id: int, user_id: int
@@ -67,13 +76,21 @@ class PostgresConsolidationQueue:
         await session.flush()
 
     async def claim(self, *, limit: int = 1) -> list[ConsolidationJobDTO]:
+        now = dt.datetime.now(dt.UTC)
+        lease_deadline = now - dt.timedelta(seconds=self._lease_seconds)
         async with self._sessionmaker() as session:
             async with session.begin():
                 rows = (
                     (
                         await session.execute(
                             select(ConsolidationJob)
-                            .where(ConsolidationJob.attempts < self._max_attempts)
+                            .where(
+                                ConsolidationJob.attempts < self._max_attempts,
+                                or_(
+                                    ConsolidationJob.claimed_at.is_(None),
+                                    ConsolidationJob.claimed_at < lease_deadline,
+                                ),
+                            )
                             .order_by(ConsolidationJob.created_at)
                             .with_for_update(skip_locked=True)
                             .limit(limit)
@@ -82,7 +99,6 @@ class PostgresConsolidationQueue:
                     .scalars()
                     .all()
                 )
-                now = dt.datetime.now(dt.UTC)
                 for row in rows:
                     row.claimed_at = now
                     row.attempts += 1
@@ -190,9 +206,21 @@ class ConsolidationWorker:
         return len(jobs)
 
     async def run_forever(self) -> None:
-        """Bucle del worker hasta que se pida parar."""
+        """Bucle del worker hasta que se pida parar.
+
+        Un fallo transitorio (por ejemplo, la base caida al reclamar) **no** debe matar la
+        tarea de fondo: se registra y se reintenta en el siguiente intervalo.
+        """
         while not self._stop.is_set():
-            processed = await self.run_once()
+            try:
+                processed = await self.run_once()
+            except Exception as error:  # noqa: BLE001 - el bucle debe sobrevivir al fallo
+                log_event(
+                    "consolidation.worker_failed",
+                    level=logging.ERROR,
+                    error=str(error),
+                )
+                processed = 0
             if processed == 0:
                 try:
                     await asyncio.wait_for(self._stop.wait(), timeout=self._interval)

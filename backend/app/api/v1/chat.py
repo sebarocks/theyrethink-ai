@@ -76,11 +76,16 @@ async def send_message(
     user_id = ensure_user_id(user)
     if thread is None or thread.user_id != user_id:
         raise _thread_not_found()
+    # El stream puede durar minutos: se cierra la transacción de comprobación para no
+    # retener una conexión del pool durante toda la respuesta del LLM. `agent_id` se copia
+    # antes porque el rollback expira los objetos de la sesión.
+    agent_id = thread.agent_id
+    await db.rollback()
 
     async def produce(queue: asyncio.Queue[tuple[str, object]]) -> None:
         try:
             async for chunk in service.send_message(
-                agent_id=thread.agent_id,
+                agent_id=agent_id,
                 user_id=user_id,
                 thread_id=thread_id,
                 text=payload.text,

@@ -4,12 +4,13 @@ El servicio toca la base (metadatos y cola), asi que estos tests usan un esquema
 aislado por test; los grafos siguen con dobles en memoria (AGENTS.md §6).
 """
 
+import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.agent.consolidation import FakeConsolidationQueue
-from app.agent.dto import AgentContext
+from app.agent.dto import AgentContext, MessageDTO
 from app.agent.graph import build_chat_graph, build_memory_graph
 from app.agent.memory import MemoryFact
 from app.agent.service import DEFAULT_THREAD_TITLE, AgentService
@@ -129,6 +130,38 @@ async def test_read_messages_excludes_injected_memory(sessionmaker: async_sessio
     assert all("Santiago" not in message.text for message in transcript)
 
 
+async def test_import_transcript_rebuilds_the_history_in_the_checkpointer(
+    sessionmaker: async_sessionmaker,
+) -> None:
+    """S4: un transcript historico se reconstruye con la API publica y se lee igual."""
+    thread_id = await _seed_thread(sessionmaker)
+    service = _service(sessionmaker)
+
+    await service.import_transcript(
+        thread_id=thread_id,
+        messages=[
+            MessageDTO(role="user", text="hola"),
+            MessageDTO(role="assistant", text="¿qué tal?"),
+            MessageDTO(role="user", text="bien"),
+            MessageDTO(role="assistant", text="me alegro"),
+        ],
+    )
+
+    transcript = await service.read_messages(thread_id=thread_id)
+    assert [(message.role, message.text) for message in transcript] == [
+        ("user", "hola"),
+        ("assistant", "¿qué tal?"),
+        ("user", "bien"),
+        ("assistant", "me alegro"),
+    ]
+
+    # Idempotente por rechazo: reimportar no puede duplicar la historia.
+    with pytest.raises(ValueError):
+        await service.import_transcript(
+            thread_id=thread_id, messages=[MessageDTO(role="user", text="otra vez")]
+        )
+
+
 async def test_record_turn_updates_metadata_and_enqueues_atomically(
     sessionmaker: async_sessionmaker,
 ) -> None:
@@ -196,6 +229,57 @@ async def test_consolidate_is_idempotent_by_watermark(sessionmaker: async_sessio
     # Reintento del mismo trabajo: la marca de agua lo descarta.
     assert await service.consolidate(job) == []
     assert len(await service.read_memory(agent_id=1, user_id=1)) == 1
+
+
+async def test_consolidate_extracts_every_pending_turn_when_the_queue_lags(
+    sessionmaker: async_sessionmaker,
+) -> None:
+    """Con la cola atrasada, un trabajo consolida **todos** los turnos pendientes (D7)."""
+    thread_id = await _seed_thread(sessionmaker)
+    store = InMemoryStore()
+    queue = FakeConsolidationQueue()
+    prompts: list[str] = []
+    service = _service(
+        sessionmaker,
+        store=store,
+        queue=queue,
+        extractor=fake_extractor([MemoryFact(content="vive en Santiago")], calls=prompts),
+    )
+
+    async for _ in service.send_message(
+        agent_id=1, user_id=1, thread_id=thread_id, text="primer turno"
+    ):
+        pass
+    async for _ in service.send_message(
+        agent_id=1, user_id=1, thread_id=thread_id, text="segundo turno"
+    ):
+        pass
+    for user_text in ("primer turno", "segundo turno"):
+        async with sessionmaker() as session:
+            await service.record_turn(
+                session,
+                thread_id=thread_id,
+                user_text=user_text,
+                assistant_text="respuesta del agente",
+            )
+            await session.commit()
+
+    first = (await queue.claim())[0]
+    await service.consolidate(first)
+
+    # Un solo trabajo extrae los dos turnos pendientes; ninguno se queda atras.
+    assert len(prompts) == 1
+    assert "primer turno" in prompts[0]
+    assert "segundo turno" in prompts[0]
+
+    # El segundo trabajo ya no tiene ventana: no vuelve a llamar al extractor.
+    second = (await queue.claim())[0]
+    assert await service.consolidate(second) == []
+    assert len(prompts) == 1
+
+    async with sessionmaker() as session:
+        thread = await session.get(Thread, thread_id)
+        assert thread.last_consolidated_message_count == 4
 
 
 async def test_delete_thread_removes_checkpoint_and_row_but_not_memory(

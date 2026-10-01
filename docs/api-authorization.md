@@ -30,4 +30,6 @@ La API usa sesiones por cookie `httpOnly` y mismo origen. Todas las rutas `/api/
 - Payload inválido: `422` con `code = invalid_request`.
 - Conflicto de unicidad o asociación duplicada: `409` con un código específico.
 
-La matriz se verifica mediante `backend/tests/test_api_contract.py` y los tests de cada router.
+La matriz se verifica mediante `backend/tests/test_api_authorization.py` (401/403/404
+paramétricos por endpoint), `backend/tests/test_api_contract.py` y los tests de cada router.
+

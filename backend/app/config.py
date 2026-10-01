@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     consolidation_worker_enabled: bool = True
     consolidation_interval_seconds: float = 1.0
     consolidation_max_attempts: int = 3
+    # Tiempo que un trabajo reclamado queda reservado antes de poder reclamarse de nuevo.
+    consolidation_lease_seconds: float = 300.0
 
     # Primer administrador (D13). Sin contrasena por defecto: si `admin_password` no esta
     # definida, el seed omite la creacion y avisa (AGENTS.md §5).

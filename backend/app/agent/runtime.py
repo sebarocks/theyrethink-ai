@@ -71,7 +71,9 @@ async def agent_runtime() -> AsyncIterator[AgentService]:
             memory_graph = build_memory_graph(extractor=extractor, store=store)
 
             queue = PostgresConsolidationQueue(
-                sessionmaker, max_attempts=settings.consolidation_max_attempts
+                sessionmaker,
+                max_attempts=settings.consolidation_max_attempts,
+                lease_seconds=settings.consolidation_lease_seconds,
             )
             service = AgentService(
                 chat_graph=chat_graph,

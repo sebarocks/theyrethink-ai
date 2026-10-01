@@ -43,7 +43,26 @@ arranca sin una.
 Para que `make seed` cree la primera cuenta `admin` (D13), define `ADMIN_PASSWORD` en el
 entorno; sin ella, no se siembra ninguna cuenta y el seed lo advierte.
 
+## Migración desde el proyecto viejo
+
+`agentes.db` se lleva al esquema nuevo con un migrador idempotente (reporte de reconciliación,
+`--dry-run`, backup del origen y plan de rollback):
+
+```sh
+cd backend
+uv run python -m scripts.migrate_from_sqlite --source ../../theythink-ai/agentes.db --dry-run
+uv run python -m scripts.migrate_from_sqlite --source ../../theythink-ai/agentes.db \
+    --admin-email admin@example.com
+```
+
+Detalle y vuelta atrás en [`docs/migration-rollback.md`](./docs/migration-rollback.md) y
+ADR [`0023`](./docs/adr/0023-data-migration.md).
+
 ## Estado
 
-Fases 0 (andamiaje) y 1 (dominio y datos) cerradas. El avance por fases está en
-[`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md) §0.
+Fases 0–5 cerradas (2026-10-01): incluye las correcciones previas a la Fase 5 y la migración
+de datos. Queda pendiente la Fase 6 (endurecimiento y corte); la 7 es opcional. La paridad de
+**datos** está completa, pero la propuesta §10 mantiene dos huecos de **superficie** (memoria
+visible/olvidable y Markdown sin renderizar) que condicionan el corte; ver el plan §0.
+El avance por fases está en [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md) §0.
+

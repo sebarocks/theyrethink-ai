@@ -567,9 +567,16 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
      `0.4 × contexto_del_modelo`, calculado en runtime (§13).
   3. *Durabilidad:* **cola en Postgres**, no `BackgroundTask`: tabla propia con
      `SELECT ... FOR UPDATE SKIP LOCKED`, encolada **en la misma transacción que el turno**
-     (D14). La marca de agua `threads.last_consolidated_at` delimita la ventana y hace la
-     consolidación idempotente ante reintentos.
-  4. *Caché:* orden canónico del prompt **`[system][historial][memoria][mensaje nuevo]`**.
+     (D14). El trabajo reclamado queda **reservado por un lease** (`claimed_at` +
+     `consolidation_lease_seconds`): dos workers no procesan el mismo trabajo a la vez y un
+     worker caído lo libera solo.
+  4. *Ventana y idempotencia:* la consolidación extrae **todos los turnos pendientes**, no
+     solo el último. Se delimita con dos marcadores de `threads`: `last_consolidated_at`
+     (marca de agua temporal, descarta reintentos del mismo trabajo) y
+     `last_consolidated_message_count` (posición en el transcript). Sin el segundo, si la
+     cola se atrasa dos trabajos seguidos consolidarían el mismo turno y los intermedios se
+     perderían. Ver ADR `0022`.
+  5. *Caché:* orden canónico del prompt **`[system][historial][memoria][mensaje nuevo]`**.
      La memoria se inyecta **al final, inmediatamente antes del mensaje nuevo**, y de forma
      **transitoria** (no se persiste en el estado del hilo). Así el prefijo
      `[system][historial]` queda byte-estable y cacheable, y solo se re-factura el tramo
@@ -626,6 +633,21 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
   actualizar su `username`, su `email` y su contraseña. Cambiar la contraseña exige la
   contraseña actual (`current_password`); la nueva se hashea con Argon2. Unicidad ⇒ 409.
   No permite cambiar el propio rol (eso es D17). Ver ADR `0021`.
+- **D20 — Migración de datos desde `agentes.db` (Fase 5).**
+  1. *Conversaciones:* replay por la **API pública del núcleo**
+     (`AgentService.import_transcript` → `aupdate_state`), nunca escribiendo filas del
+     checkpointer a mano (S4). La importación es idempotente por rechazo.
+  2. *Hilos:* `sesiones_chat` no tiene dueño; las sesiones migradas se asignan al propietario
+     (`--owner`, por defecto el único usuario o el `admin`). Los hilos importados nacen
+     **consolidados** (marcadores al final del transcript).
+  3. *Memoria:* `agentes.memoria` (compartida por agente) se divide con el port de
+     `_dividir_memorias` y se replica al namespace `(agente, usuario)` de **cada usuario
+     migrado**; la dedup del núcleo evita repetir hechos.
+  4. *Hash heredado:* `scrypt:N:r:p$salt$hex` de Werkzeug se verifica con `hashlib.scrypt` de
+     la stdlib (sin dependencia nueva) y se re-hashea a Argon2 en el primer login exitoso.
+  5. *Idempotencia:* *upsert* por clave natural; el `password_hash` de un usuario existente y
+     los marcadores de consolidación de un hilo existente **no** se reescriben.
+  Ver ADR `0023` y `docs/migration-rollback.md`.
 
 ### Abiertas
 

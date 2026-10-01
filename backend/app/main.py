@@ -4,12 +4,15 @@ Al importar este módulo no se toca la base de datos ni se ejecuta nada con efec
 secundarios más allá de construir la app.
 """
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.agent.runtime import agent_runtime
 from app.api.v1.admin import router as admin_router
@@ -24,6 +27,7 @@ from app.db import ping_database
 from app.spa import mount_spa
 
 API_VERSION = "0.1.0"
+_logger = logging.getLogger("app")
 
 
 @asynccontextmanager
@@ -51,6 +55,20 @@ def _error_response(status_code: int, detail: object) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=payload)
 
 
+def _validation_detail(exc: RequestValidationError) -> list[dict[str, object]]:
+    """Errores de validación sin el valor enviado.
+
+    El `input` de Pydantic refleja el dato recibido —incluida una contraseña— y termina en
+    logs y trazas; el cliente no lo necesita para corregir.
+    """
+    return jsonable_encoder(
+        [
+            {key: value for key, value in error.items() if key not in {"input", "url"}}
+            for error in exc.errors()
+        ]
+    )
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -60,8 +78,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    @app.exception_handler(HTTPException)
-    async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
+    # Se registra sobre la excepción de Starlette (padre de la de FastAPI): así también
+    # caen aquí los 404/405 que genera el router, que si no escapan al envelope.
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        _request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
         return _error_response(exc.status_code, exc.detail)
 
     @app.exception_handler(RequestValidationError)
@@ -73,7 +95,20 @@ def create_app() -> FastAPI:
             {
                 "error": "validation_error",
                 "code": "invalid_request",
-                "detail": exc.errors(),
+                "detail": _validation_detail(exc),
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+        """Último recurso: envelope estable sin filtrar el detalle interno."""
+        _logger.exception("error no controlado", exc_info=exc)
+        return _error_response(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            {
+                "error": "internal_error",
+                "code": "internal_error",
+                "detail": "Error interno del servidor.",
             },
         )
 

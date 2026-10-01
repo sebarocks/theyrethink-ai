@@ -19,9 +19,18 @@ export interface SessionState {
 
 export const session = writable<SessionState>({ user: null, ready: false });
 
-/** Resuelve la sesión al arrancar la app (401 ⇒ anónimo, no es un error). */
+/**
+ * Resuelve la sesión al arrancar la app (401 ⇒ anónimo, no es un error).
+ *
+ * Un fallo de red o un 5xx tampoco debe dejar la app colgada en `ready = false`: la guarda
+ * del layout nunca correría y la pantalla quedaría en blanco. Se resuelve como anónimo.
+ */
 export async function loadSession(): Promise<void> {
-  session.set({ user: await me(), ready: true });
+  try {
+    session.set({ user: await me(), ready: true });
+  } catch {
+    session.set({ user: null, ready: true });
+  }
 }
 
 export async function signIn(

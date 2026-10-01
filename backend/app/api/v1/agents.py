@@ -17,12 +17,26 @@ from app.models import Agent, Role, User
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
-_AVATAR_TYPES = {
-    "image/jpeg": (b"\\xff\\xd8\\xff", ".jpg"),
-    "image/png": (b"\\x89PNG\\r\\n\\x1a\\n", ".png"),
-    "image/gif": (b"GIF8", ".gif"),
-    "image/webp": (b"RIFF", ".webp"),
+# Firmas reales de cada formato: `bytes` de verdad, no su representación escapada. Los
+# formatos con más de una cabecera válida (GIF87a/GIF89a) declaran varias.
+_AVATAR_TYPES: dict[str, tuple[tuple[bytes, ...], str]] = {
+    "image/jpeg": ((b"\xff\xd8\xff",), ".jpg"),
+    "image/png": ((b"\x89PNG\r\n\x1a\n",), ".png"),
+    "image/gif": ((b"GIF87a", b"GIF89a"), ".gif"),
+    "image/webp": ((b"RIFF",), ".webp"),
 }
+
+
+def _matches_signature(content_type: str, content: bytes) -> bool:
+    """Comprueba que el contenido empieza por la firma real del tipo declarado.
+
+    El `Content-Type` lo elige el cliente, así que no basta: hay que contrastarlo con los
+    bytes. En WEBP además hay que mirar el offset 8, porque «RIFF» abre también WAV y AVI.
+    """
+    if content_type == "image/webp":
+        return len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP"
+    signatures, _extension = _AVATAR_TYPES[content_type]
+    return content.startswith(signatures)
 
 
 def _avatar_error(
@@ -164,9 +178,9 @@ async def upload_avatar(
     content = await file.read(MAX_AVATAR_BYTES + 1)
     if len(content) > MAX_AVATAR_BYTES:
         raise _avatar_error("file_too_large", "El avatar supera el límite de 5 MiB.")
-    signature, extension = _AVATAR_TYPES[file.content_type]
-    if not content.startswith(signature):
+    if not _matches_signature(file.content_type, content):
         raise _avatar_error("invalid_content", "El contenido no coincide con su tipo declarado.")
+    extension = _AVATAR_TYPES[file.content_type][1]
 
     destination = _avatar_directory() / f"{uuid4().hex}{extension}"
     destination.write_bytes(content)

@@ -176,7 +176,10 @@ class Thread(SQLModel, table=True):
 
     `message_count`, `last_preview` y `title` los mantiene el servicio; si discrepan del
     checkpointer, manda el checkpointer (AGENTS.md §3.4). `id` es el `thread_id` que se
-    pasa a LangGraph. `last_consolidated_at` es la marca de agua de consolidacion (D7).
+    pasa a LangGraph. La consolidacion (D7) se delimita con dos marcadores:
+    `last_consolidated_at` (marca de agua temporal, para reintentos) y
+    `last_consolidated_message_count` (posicion dentro del transcript), que es el que
+    garantiza que ningun turno quede sin extraer si la cola se atrasa.
     """
 
     __tablename__ = "threads"
@@ -220,6 +223,10 @@ class Thread(SQLModel, table=True):
     last_preview: str = Field(default="", sa_column=Column(Text, nullable=False, server_default=""))
     last_consolidated_at: dt.datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    last_consolidated_message_count: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, server_default=text("0")),
     )
 
 

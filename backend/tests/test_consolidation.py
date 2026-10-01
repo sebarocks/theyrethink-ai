@@ -1,5 +1,7 @@
 """Tests de la cola de consolidacion y su worker (D7/D14)."""
 
+import asyncio
+
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.agent.consolidation import (
@@ -112,3 +114,52 @@ async def test_postgres_queue_retries_after_failure_and_respects_max_attempts(
 
     # Agotados los intentos, el trabajo queda fuera de la cola (dead-letter).
     assert await queue.claim() == []
+
+
+async def test_postgres_queue_does_not_reclaim_a_leased_job(
+    isolated_sessionmaker: async_sessionmaker,
+) -> None:
+    """Un trabajo reclamado queda reservado hasta que vence el lease (dos workers)."""
+    thread_id = await _seed_thread(isolated_sessionmaker)
+    queue = PostgresConsolidationQueue(isolated_sessionmaker, lease_seconds=300)
+
+    async with isolated_sessionmaker() as session:
+        await queue.enqueue(session, thread_id=thread_id, agent_id=1, user_id=1)
+        await session.commit()
+
+    first = await queue.claim()
+    assert len(first) == 1
+    assert await queue.claim() == []
+
+    # Con el lease vencido, el trabajo vuelve a estar disponible (reintento).
+    expired = PostgresConsolidationQueue(isolated_sessionmaker, lease_seconds=0)
+    second = await expired.claim()
+    assert len(second) == 1
+    assert second[0].attempts == 2
+
+
+async def test_worker_keeps_running_after_a_claim_failure() -> None:
+    """Un fallo al reclamar (base caida) no debe matar la tarea de fondo."""
+
+    class FlakyQueue(FakeConsolidationQueue):
+        def __init__(self) -> None:
+            super().__init__()
+            self.claim_calls = 0
+
+        async def claim(self, *, limit: int = 1) -> list[ConsolidationJobDTO]:
+            self.claim_calls += 1
+            if self.claim_calls == 1:
+                raise RuntimeError("base caida")
+            return await super().claim(limit=limit)
+
+    async def consolidate(job: ConsolidationJobDTO) -> None:
+        return None
+
+    queue = FlakyQueue()
+    worker = ConsolidationWorker(queue=queue, consolidate=consolidate, interval_seconds=0.01)
+    task = worker.start()
+    await asyncio.sleep(0.05)
+
+    assert not task.done()
+    await worker.stop()
+    assert queue.claim_calls >= 2

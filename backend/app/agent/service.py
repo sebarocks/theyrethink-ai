@@ -18,6 +18,7 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph import START
 from langgraph.store.base import BaseStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -57,24 +58,23 @@ def _content_to_text(message: BaseMessage) -> str:
     return "".join(parts)
 
 
-def _last_turn_text(messages: list[BaseMessage]) -> str:
-    """Texto del ultimo turno (ultimo mensaje humano + respuesta del agente)."""
-    last_human = next(
-        (
-            index
-            for index in range(len(messages) - 1, -1, -1)
-            if isinstance(messages[index], HumanMessage)
-        ),
-        None,
-    )
-    if last_human is None:
-        return ""
-    user_text = _content_to_text(messages[last_human])
-    assistant_text = ""
-    for message in messages[last_human + 1 :]:
-        if isinstance(message, AIMessage) and _content_to_text(message):
-            assistant_text = _content_to_text(message)
-    return f"Usuario: {user_text}\nAgente: {assistant_text}".strip()
+def _conversation_text(messages: list[BaseMessage], since: int) -> str:
+    """Transcripcion de los mensajes no consolidados (`since` = posicion ya cubierta).
+
+    Se extraen **todos** los turnos pendientes, no solo el ultimo: si la cola se atrasa, un
+    trabajo posterior no debe dejar atras los turnos anteriores (D7). El orden es el del
+    checkpointer, que es la fuente de verdad.
+    """
+    lines: list[str] = []
+    for message in messages[since:]:
+        text = _content_to_text(message)
+        if not text:
+            continue
+        if isinstance(message, HumanMessage):
+            lines.append(f"Usuario: {text}")
+        elif isinstance(message, AIMessage):
+            lines.append(f"Agente: {text}")
+    return "\n".join(lines)
 
 
 class AgentService:
@@ -153,6 +153,29 @@ class AgentService:
                 transcript.append(MessageDTO(role="assistant", text=text))
         return transcript
 
+    async def import_transcript(self, *, thread_id: int, messages: list[MessageDTO]) -> None:
+        """Reconstruye el transcript de un hilo historico en el checkpointer (S4, Fase 5).
+
+        Usa `aupdate_state`, la API publica de LangGraph, y no escribe filas del checkpointer
+        a mano (AGENTS.md §3.3). **Idempotente por rechazo**: si el hilo ya tiene transcript,
+        falla en vez de duplicarlo, porque el reducer `add_messages` agregaria los mensajes.
+        """
+        if not messages:
+            return
+        if await self.read_messages(thread_id=thread_id):
+            raise ValueError(f"el hilo {thread_id} ya tiene transcript importado")
+        history: list[BaseMessage] = [
+            HumanMessage(content=message.text)
+            if message.role == "user"
+            else AIMessage(content=message.text)
+            for message in messages
+        ]
+        await self._chat_graph.aupdate_state(
+            {"configurable": {"thread_id": str(thread_id)}},
+            {"messages": history},
+            as_node=START,
+        )
+
     # -------------------------------------------------------------- memoria
 
     async def ensure_memory(
@@ -166,20 +189,24 @@ class AgentService:
         return await read_facts(self._store, memory_namespace(agent_id, user_id))
 
     async def consolidate(self, job: ConsolidationJobDTO) -> list[MemoryFact]:
-        """Consolida el turno de un trabajo de la cola (D7).
+        """Consolida los turnos pendientes de un trabajo de la cola (D7).
 
-        Idempotente por la marca de agua `threads.last_consolidated_at`: si el hilo ya
-        consolido hasta `job.created_at`, no se reprocesa. La sesion no se mantiene abierta
-        durante la llamada al LLM: se lee, se cierra, se extrae y se vuelve a abrir para la
-        marca de agua.
+        Idempotente por dos marcadores de `threads`: la marca de agua temporal
+        (`last_consolidated_at`, que descarta reintentos del mismo trabajo) y la posicion en
+        el transcript (`last_consolidated_message_count`, que garantiza que ningun turno
+        quede sin extraer aunque la cola acumule trabajos). La sesion no se mantiene abierta
+        durante la llamada al LLM: se lee, se cierra, se extrae y se vuelve a abrir para los
+        marcadores.
         """
-        if not await self._needs_consolidation(job):
+        since = await self._consolidation_position(job)
+        if since is None:
             log_event("memory.skip", thread_id=job.thread_id, reason="already_consolidated")
             return []
 
-        conversation = await self._last_turn_text(job.thread_id)
+        messages = await self._thread_messages(job.thread_id)
+        conversation = _conversation_text(messages, since)
         if not conversation:
-            await self._mark_consolidated(job)
+            await self._mark_consolidated(job, position=len(messages))
             return []
 
         existing = await read_facts(self._store, memory_namespace(job.agent_id, job.user_id))
@@ -191,33 +218,38 @@ class AgentService:
                 "existing_facts": [fact.content for fact in existing],
             }
         )
-        await self._mark_consolidated(job)
+        await self._mark_consolidated(job, position=len(messages))
         return list(result.get("persisted", []))
 
-    async def _needs_consolidation(self, job: ConsolidationJobDTO) -> bool:
+    async def _consolidation_position(self, job: ConsolidationJobDTO) -> int | None:
+        """Posicion ya consolidada, o `None` si el trabajo es un reintento ya cubierto."""
         async with self._sessionmaker() as session:
             thread = await session.get(Thread, job.thread_id)
             if thread is None:
-                return False
-            return not (
+                return None
+            if (
                 thread.last_consolidated_at is not None
                 and thread.last_consolidated_at >= job.created_at
-            )
+            ):
+                return None
+            return thread.last_consolidated_message_count
 
-    async def _mark_consolidated(self, job: ConsolidationJobDTO) -> None:
+    async def _mark_consolidated(self, job: ConsolidationJobDTO, *, position: int) -> None:
         async with self._sessionmaker() as session:
             thread = await session.get(Thread, job.thread_id)
             if thread is None:
                 return
             thread.last_consolidated_at = job.created_at
+            thread.last_consolidated_message_count = max(
+                thread.last_consolidated_message_count, position
+            )
             await session.commit()
 
-    async def _last_turn_text(self, thread_id: int) -> str:
+    async def _thread_messages(self, thread_id: int) -> list[BaseMessage]:
         snapshot = await self._chat_graph.aget_state(
             {"configurable": {"thread_id": str(thread_id)}}
         )
-        messages = snapshot.values.get("messages", []) if snapshot else []
-        return _last_turn_text(list(messages))
+        return list(snapshot.values.get("messages", [])) if snapshot else []
 
     # ------------------------------------------------------------- hilos
 

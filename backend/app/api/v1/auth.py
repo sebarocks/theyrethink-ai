@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import SESSION_COOKIE, CurrentUser, auth_error, hash_session_token
 from app.db import get_session
 from app.models import Session, User
-from app.security import hash_password, verify_password
+from app.security import hash_password, needs_rehash, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 SESSION_DAYS = 30
@@ -103,6 +103,11 @@ async def login(
     user = result.scalar_one_or_none()
     if user is None or not verify_password(user.password_hash, payload.password):
         raise auth_error("invalid_credentials", "Las credenciales no son válidas.")
+    if needs_rehash(user.password_hash):
+        # Re-hash perezoso: el hash heredado de Werkzeug (migración Fase 5) se reescribe a
+        # Argon2 en el primer login exitoso, con la contraseña ya verificada en claro.
+        user.password_hash = hash_password(payload.password)
+        await db.commit()
     await _create_session(response, user, db)
     return user
 

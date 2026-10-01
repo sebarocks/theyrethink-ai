@@ -34,11 +34,33 @@
 | 2 | Núcleo del agente | ✅ cerrada | ✅ |
 | 3 | API | ✅ cerrada | ✅ |
 | 4 | Frontend | ✅ cerrada | ✅ |
-| 5 | Migración de datos | ⬜ pendiente | ⬜ |
+| 5 | Migración de datos | ✅ cerrada | ✅ (con salvedad §10) |
 | 6 | Endurecimiento y corte | ⬜ pendiente | ⬜ |
 | 7 | Extensiones | ⬜ opcional | ⬜ |
 
 Leyenda: ⬜ pendiente · 🔵 en curso · ✅ cerrada.
+
+### Correcciones previas a la Fase 5 (2026-10-01)
+
+Revisión completa de las fases 0–4 antes de abrir la Fase 5. Se corrigieron defectos que
+contradecían el «✅ cerrada» y se añadieron los tests que faltaban:
+
+| Área | Defecto | Corrección | Test |
+|---|---|---|---|
+| Avatares (F3) | Firmas guardadas como texto escapado: todo raster real se rechazaba y un archivo con ese literal podía colarse | Firmas en bytes reales + marcador WEBP (`_matches_signature`) | `test_api_avatars.py` |
+| Contrato de errores (F3) | Los 404 del router escapaban al envelope; el 422 reflejaba la contraseña enviada | Handler sobre `StarletteHTTPException` + `Exception`; `_validation_detail` sin `input` | `test_api_contract.py` |
+| Autorización (F3) | El plan daba por hecho un test paramétrico 401/403/404 que no existía | Matriz completa de la API | `test_api_authorization.py` |
+| `POST /threads` (F3) | `agent_id` inexistente ⇒ 500 por `IntegrityError` | 404 `agent_not_found` antes de crear | `test_api_authorization.py` |
+| Chat SSE (F4) | Sin cancelación ni secuenciación: los tokens de un hilo podían escribirse en otro | `AbortController` + `requestSeq`/`loadSeq` | `tests/vitest/chat.test.ts` |
+| Sesión (F4) | Un fallo de red al resolver la sesión dejaba la app en blanco | `loadSession` resuelve como anónimo y marca `ready` | — |
+| SSE (F3) | La transacción de comprobación retenía una conexión del pool durante todo el stream | Rollback tras copiar `agent_id` | `test_api_chat.py` |
+| Consolidación (F2) | Solo se consolidaba el último turno; doble reclamo entre workers; el worker moría ante un fallo | Ventana por posición (migración `0004`), lease y worker tolerante (ADR `0022`) | `test_service.py`, `test_consolidation.py` |
+
+**Verificado el 2026-10-01:** `ruff format --check` y `ruff check` limpios, `lint-imports`
+(2 kept), `pytest` **187 passed**, `alembic check` sin drift (head `0004`),
+`deno fmt --check`, `deno lint`, `deno task check` (0 errores), `deno task test` (7),
+`test:unit` (7) y `test:e2e` (1).
+
 
 ---
 
@@ -78,8 +100,9 @@ escrita**. No se construye sobre una librería cuya capacidad no se ha verificad
 | S5 | ¿`import-linter` bloquea `langgraph` fuera de `agent/` con la estructura propuesta? | Fase 0 | Contrato versionado en `pyproject.toml` |
 | S6 | ¿SvelteKit + Tailwind se construyen bajo **Deno** sin Node? Puntos frágiles: plugins de Vite, `svelte-check`, Vitest y Playwright. ¿`adapter-static` deja Deno solo en build-time? | Fase 4 | Nota con `deno task` reales, y decisión sobre E2E (Playwright bajo Deno, automatización nativa tipo `astral`, o checklist manual) |
 
-**Estado (2026-09-28):** S1, S2, S3, S5 y S6 **concluidos** con evidencia en `docs/spikes/`;
-queda pendiente **S4** (replay del checkpointer), que es gate de la Fase 5, no de la Fase 4.
+**Estado (2026-10-01):** **S1, S2, S3, S4, S5 y S6 concluidos** con evidencia en
+`docs/spikes/`. S4 (replay del checkpointer) se cerró como gate de la Fase 5 con
+`backend/scripts/spike_s4.py` y `docs/spikes/S4-checkpointer-replay.md` (`langgraph 1.2.11`).
 S1 se cerró contra un proveedor real OpenAI-compatible (OpenRouter); el
 modelo **recomendado** es `openai/gpt-5.6-luna` (streaming y `json_schema` fiables), pero no
 es un pin: cualquier modelo OpenAI-compatible se permite y se valida con
@@ -121,6 +144,7 @@ que cada una bloquea: **no se empieza una fase con su decisión abierta.**
 | D17 | Gestión de usuarios por administrador (`users`) | ✅ resuelta | — |
 | D18 | Vista admin de transcripciones (`admin`) | ✅ resuelta | — |
 | D19 | Edición del perfil propio (`PATCH /auth/me`) | ✅ resuelta | — |
+| D20 | Migración de datos desde `agentes.db` (replay, hash heredado, memoria, idempotencia) | ✅ resuelta | — |
 
 Cuando una decisión se implementa, se convierte en ADR en `docs/adr/`
 (`0000-template.md` es la plantilla).
@@ -545,27 +569,47 @@ cuando exista la aplicación frontend completa.
 la práctica, un traslado de semillas, no de datos. Aun así el script debe ser general:
 puede haber despliegues con datos reales.
 
-**Tareas**
+**Tareas** — cerrada el 2026-10-01.
 
-- [ ] `scripts/migrate_from_sqlite.py` con `--dry-run` y **reporte de reconciliación**
-      (conteos por tabla, huérfanos, descartes, colisiones de UNIQUE).
-- [ ] Mapping documentado viejo→nuevo: `usuarios`→`users` (con `--admin-email` sintetizado),
-      `sesiones_chat`→`threads`, `conversaciones`→checkpointer, `agentes.memoria`→`Store`.
-- [ ] Re-hash a Argon2: leer el hash `scrypt` de Werkzeug y migrar de forma perezosa
-      (verificar con `werkzeug.security`, re-hashear en el primer login exitoso).
-      `werkzeug` queda como dependencia *solo de migración*.
-- [ ] Conversaciones → checkpointer por **replay vía API pública** (S4), con test de
-      fidelidad: el transcript reconstruido es idéntico al de origen.
-- [ ] `agentes.memoria` → hechos en el `Store`, reutilizando la partición
-      (`_dividir_memorias`) y la dedup del núcleo.
-- [ ] **Fixtures sintéticas**: generar un `.db` de prueba con conversaciones y memoria
-      fabricadas, porque el dump local está vacío y no sirve para probar el migrador.
-- [ ] Backup del `.db` antes de correr; idempotencia verificada (doble ejecución).
-- [ ] Correr el **golden de Fase 1** contra el resultado y reportar diferencias.
+- [x] `scripts/migrate_from_sqlite.py` con `--dry-run` y **reporte de reconciliación**
+      (conteos por tabla, huérfanos, descartes y colisiones), con `--report` a archivo.
+- [x] Mapping documentado viejo→nuevo: `usuarios`→`users` (con `--admin-email` sintetizado),
+      `roles`→`roles`, `agentes`→`agents`, `fuentes_conocimiento`/`agente_fuentes`→
+      `knowledge_sources`/`agent_sources`, `sesiones_chat`→`threads`,
+      `conversaciones`→checkpointer, `agentes.memoria`→`Store`.
+- [x] Re-hash a Argon2 **perezoso**: el hash `scrypt` de Werkzeug se verifica con
+      `hashlib.scrypt` de la stdlib y se reescribe en el primer login exitoso.
+      *Desviación consciente de D20.4:* se descarta `werkzeug` (ni como dependencia de
+      migración); el formato es estable y se verificó contra la implementación real
+      (`werkzeug 3.1.8`). Ver ADR `0023`.
+- [x] Conversaciones → checkpointer por **replay vía API pública** (S4,
+      `AgentService.import_transcript`), con test de fidelidad del transcript.
+- [x] `agentes.memoria` → hechos en el `Store`, reutilizando el port de `_dividir_memorias` y
+      la dedup del núcleo, replicados a cada usuario migrado.
+- [x] **Fixtures sintéticas**: `tests/test_migrate_from_sqlite.py` construye un `.db` heredado
+      con conversaciones y memoria (el dump local está vacío).
+- [x] Backup del `.db` antes de correr (`--no-backup` para omitirlo); idempotencia verificada
+      con doble ejecución en test.
+- [x] **Golden de Fase 1** contrastado contra el resultado, con diferencias reportadas.
 
-**DoD:** doble ejecución ⇒ mismo resultado; 0 discrepancias no explicadas en el reporte;
-transcript de muestra idéntico sobre fixtures sintéticas; checklist de la propuesta §10
-completa; plan de rollback escrito.
+**DoD:** ✅ verificado el 2026-10-01 (con una salvedad explícita, abajo).
+
+| Comprobación | Evidencia |
+|---|---|
+| Doble ejecución ⇒ mismo resultado | `test_migration_is_idempotent_and_faithful`: 2.ª corrida con `hilos_creados=0`, `transcripts_importados=0` |
+| 0 discrepancias no explicadas | El reporte lista huérfanos, descartes y colisiones; el golden reporta el dump como subconjunto (8 de 19 agentes/fuentes) |
+| Transcript idéntico sobre fixtures | El test compara rol/texto mensaje a mensaje |
+| Plan de rollback | `docs/migration-rollback.md` |
+| `--dry-run` no escribe | Test que verifica que el destino queda vacío |
+| Spike S4 | `docs/spikes/S4-checkpointer-replay.md` (concluido, `langgraph 1.2.11`) |
+| Suite, lint y contratos | `pytest` **198 passed**, `ruff` limpio, `lint-imports` 2 kept |
+
+**Salvedad — checklist de la propuesta §10.** La paridad de datos está completa, pero la
+revisión previa a esta fase encontró **dos huecos de superficie** que §10 lista y siguen
+abiertos: **memoria visible/olvidable** (no hay `GET`/`DELETE` de memoria pese a D10) y
+**Markdown sin renderizar** (más la landing reducida). No son tareas de migración y no
+bloquean el traslado, pero **el gate de la Fase 6 queda condicionado** a decidir si entran
+antes del corte. Están registrados en el §0 (correcciones previas a la Fase 5).
 
 ---
 

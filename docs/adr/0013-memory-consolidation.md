@@ -25,3 +25,8 @@ La extracción de memoria de cada turno bloqueaba la respuesta (`app.py:976`), y
 - Sin ventana de inconsistencia y sin servicio extra que operar.
 - Cuesta 2× por turno y deja el costo de la memoria creciente: se vigila con la métrica de tokens inyectados; compactación y dedup semántica solo en Fase 7.
 - Si algún día sube `N`, hace falta *flush* al cerrar el hilo (con `N=1` no es necesario).
+
+> Refinada por la ADR `0022`: la ventana se delimita por **posición**
+> (`threads.last_consolidated_message_count`), no solo por la marca de agua, y el reclamo de
+> la cola usa un **lease** para no procesar el mismo trabajo dos veces.
+

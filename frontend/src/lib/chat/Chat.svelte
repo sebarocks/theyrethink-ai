@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, type Snippet } from "svelte";
+  import { onDestroy, onMount, type Snippet } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { streamMessage } from "$lib/api/chat";
   import {
@@ -35,6 +35,29 @@
   let streaming = $state(false);
   let error = $state<string | null>(null);
 
+  // Cancelación y secuenciación: el usuario puede cambiar de hilo mientras el agente
+  // responde. Sin esto, los tokens de un hilo se escribirían en el array del otro.
+  let controller: AbortController | null = null;
+  let requestSeq = 0;
+  let loadSeq = 0;
+
+  function cancelStream() {
+    controller?.abort();
+    controller = null;
+  }
+
+  function isAbort(cause: unknown): boolean {
+    return (
+      typeof cause === "object" &&
+      cause !== null &&
+      (cause as { name?: string }).name === "AbortError"
+    );
+  }
+
+  function describe(cause: unknown): string {
+    return cause instanceof Error ? cause.message : String(cause);
+  }
+
   async function refreshThreads() {
     threads = (await listThreads()).filter(
       (thread) => thread.agent_id === agentId,
@@ -42,8 +65,13 @@
   }
 
   async function selectThread(threadId: number) {
+    cancelStream();
+    streaming = false;
+    const seq = ++loadSeq;
     currentId = threadId;
-    messages = await listMessages(threadId);
+    const loaded = await listMessages(threadId);
+    // Otra selección llegó después: esta respuesta ya no es la vigente.
+    if (seq === loadSeq) messages = loaded;
   }
 
   async function startThread() {
@@ -53,6 +81,7 @@
   }
 
   async function removeThread(threadId: number) {
+    if (threadId === currentId) cancelStream();
     await deleteThread(threadId);
     if (currentId === threadId) {
       currentId = null;
@@ -62,9 +91,19 @@
   }
 
   async function send(text: string) {
-    if (currentId === null) await startThread();
+    try {
+      if (currentId === null) await startThread();
+    } catch (cause) {
+      error = describe(cause);
+      return;
+    }
     const threadId = currentId;
     if (threadId === null) return;
+
+    cancelStream();
+    const requestId = ++requestSeq;
+    const active = new AbortController();
+    controller = active;
 
     messages = [
       ...messages,
@@ -75,7 +114,9 @@
     streaming = true;
     error = null;
     try {
-      for await (const event of streamMessage(threadId, text)) {
+      for await (const event of streamMessage(threadId, text, active.signal)) {
+        // Respuesta obsoleta: se cambió de hilo o se lanzó otro envío.
+        if (requestId !== requestSeq || currentId !== threadId) return;
         if (event.type === "chunk") {
           messages[last].text += event.text;
         } else if (event.type === "error") {
@@ -83,17 +124,26 @@
         }
       }
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      if (!isAbort(cause) && requestId === requestSeq) error = describe(cause);
     } finally {
-      streaming = false;
-      await refreshThreads();
+      if (requestId === requestSeq) {
+        streaming = false;
+        controller = null;
+        await refreshThreads().catch(() => {});
+      }
     }
   }
 
   onMount(async () => {
-    await refreshThreads();
-    if (threads.length > 0) await selectThread(threads[0].id);
+    try {
+      await refreshThreads();
+      if (threads.length > 0) await selectThread(threads[0].id);
+    } catch (cause) {
+      error = describe(cause);
+    }
   });
+
+  onDestroy(cancelStream);
 </script>
 
 <div class="flex h-full min-h-0">

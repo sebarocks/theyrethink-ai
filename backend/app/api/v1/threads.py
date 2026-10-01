@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.service import AgentService
 from app.api.deps import CurrentUser
 from app.db import get_session
-from app.models import Thread, User
+from app.models import Agent, Thread, User
 
 router = APIRouter(prefix="/threads", tags=["threads"])
 
@@ -67,6 +67,15 @@ async def create_thread(
     db: AsyncSession = Depends(get_session),  # noqa: B008
     service: AgentService = Depends(get_agent_service),  # noqa: B008
 ) -> ThreadResponse:
+    if await db.get(Agent, payload.agent_id) is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "not_found",
+                "code": "agent_not_found",
+                "detail": "El agente no existe.",
+            },
+        )
     try:
         thread = await service.create_thread(
             db,

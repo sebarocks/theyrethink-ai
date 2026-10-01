@@ -6,6 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import main as main_module
 from app.api.deps import get_current_user
 from app.db import get_session
 from app.main import app
@@ -117,3 +118,46 @@ async def test_duplicate_role_key_returns_409(client: AsyncClient, session: Asyn
 
     assert response.status_code == 409
     assert response.json()["code"] == "role_key_taken"
+
+
+async def test_unknown_route_keeps_the_error_envelope(client: AsyncClient) -> None:
+    """Los 404 del router (Starlette) también usan `{error, code, detail}`."""
+    response = await client.get("/api/v1/ruta-que-no-existe")
+
+    assert response.status_code == 404
+    body = response.json()
+    assert {"error", "code", "detail"} <= body.keys()
+
+
+async def test_validation_error_does_not_echo_the_submitted_value(client: AsyncClient) -> None:
+    """El 422 no refleja la contraseña recibida en `detail[].input`."""
+    secret = "corta"
+    response = await client.post(
+        "/api/v1/auth/register",
+        json={"username": "abc", "email": "a@b.co", "password": secret},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert all("input" not in error for error in body["detail"])
+    assert secret not in response.text
+
+
+async def test_unhandled_error_returns_a_stable_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def boom() -> bool:
+        raise RuntimeError("fallo simulado")
+
+    monkeypatch.setattr(main_module, "ping_database", boom)
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/readyz")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "internal_error",
+        "code": "internal_error",
+        "detail": "Error interno del servidor.",
+    }
