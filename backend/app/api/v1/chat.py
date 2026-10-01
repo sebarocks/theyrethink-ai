@@ -5,13 +5,13 @@ import json
 from collections.abc import AsyncIterator
 from typing import Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.service import AgentService
-from app.api.deps import CurrentUser, ensure_user_id
+from app.api.deps import CurrentUser, ensure_user_id, get_agent_service
 from app.db import get_session
 from app.models import Thread, User
 
@@ -28,10 +28,6 @@ class MessageResponse(BaseModel):
 
     role: Literal["user", "assistant"]
     text: str
-
-
-def get_agent_service(request: Request) -> AgentService:
-    return request.app.state.agent_service
 
 
 def _event(event: str, data: dict[str, object]) -> str:

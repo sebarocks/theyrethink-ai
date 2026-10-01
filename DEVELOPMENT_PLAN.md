@@ -61,6 +61,26 @@ contradecían el «✅ cerrada» y se añadieron los tests que faltaban:
 `deno fmt --check`, `deno lint`, `deno task check` (0 errores), `deno task test` (7),
 `test:unit` (7) y `test:e2e` (1).
 
+### Cierre de huecos de §10 (2026-10-01)
+
+Cerrada la Fase 5 quedaban los huecos de superficie que la revisión marcó como condición del
+gate de la Fase 6. Se cierran aquí (decisión D21):
+
+| Hueco | Corrección | Test |
+|---|---|---|
+| Memoria sin ver ni olvidar (D10) | `GET`/`DELETE /api/v1/agents/{id}/memory` + panel en el chat | `test_api_memory.py`, `test_service.py`, `tests/vitest/chat.test.ts`, E2E |
+| Markdown sin renderizar | Parser propio y seguro, sin `{@html}` ni dependencias nuevas (ADR `0024`) | `tests/markdown_test.ts`, `tests/vitest/markdown.test.ts` |
+| Landing desmantelada | Hero + capacidades + flujo + catálogo + términos con las claves i18n existentes | E2E |
+| Renombrar hilo sin UI | Renombrado en línea en la lista de hilos | `tests/vitest/chat.test.ts`, E2E |
+| Texto hardcodeado (`Email`, canales) | `admin_emailLabel` en los 6 idiomas; canales por i18n en la landing | `tests/i18n_parity_test.ts` (468 claves) |
+
+**Verificado el 2026-10-01:** backend `ruff` limpio, `lint-imports` 2 kept y `pytest`
+**204 passed**; frontend `deno fmt --check`, `deno lint`, `deno task check` (0 errores),
+`deno task test` **12**, `test:unit` **12** y `test:e2e` **1**.
+
+Siguen fuera de alcance (no bloquean el corte, anotados para no perderlos): página de estado
+de configuración del LLM en admin y desglose por agente en el dashboard.
+
 
 ---
 
@@ -145,6 +165,7 @@ que cada una bloquea: **no se empieza una fase con su decisión abierta.**
 | D18 | Vista admin de transcripciones (`admin`) | ✅ resuelta | — |
 | D19 | Edición del perfil propio (`PATCH /auth/me`) | ✅ resuelta | — |
 | D20 | Migración de datos desde `agentes.db` (replay, hash heredado, memoria, idempotencia) | ✅ resuelta | — |
+| D21 | Cierre de huecos de §10 (memoria visible/olvidable, Markdown, landing, renombrado) | ✅ resuelta | — |
 
 Cuando una decisión se implementa, se convierte en ADR en `docs/adr/`
 (`0000-template.md` es la plantilla).
@@ -604,12 +625,12 @@ puede haber despliegues con datos reales.
 | Spike S4 | `docs/spikes/S4-checkpointer-replay.md` (concluido, `langgraph 1.2.11`) |
 | Suite, lint y contratos | `pytest` **198 passed**, `ruff` limpio, `lint-imports` 2 kept |
 
-**Salvedad — checklist de la propuesta §10.** La paridad de datos está completa, pero la
-revisión previa a esta fase encontró **dos huecos de superficie** que §10 lista y siguen
-abiertos: **memoria visible/olvidable** (no hay `GET`/`DELETE` de memoria pese a D10) y
-**Markdown sin renderizar** (más la landing reducida). No son tareas de migración y no
-bloquean el traslado, pero **el gate de la Fase 6 queda condicionado** a decidir si entran
-antes del corte. Están registrados en el §0 (correcciones previas a la Fase 5).
+**Salvedad — checklist de la propuesta §10.** Al cerrar la fase, la paridad de datos estaba
+completa pero quedaban abiertos **dos huecos de superficie** de §10: **memoria
+visible/olvidable** (sin `GET`/`DELETE` pese a D10) y **Markdown sin renderizar** (más la
+landing reducida). **Se cerraron el mismo 2026-10-01** con la decisión D21 y el ADR `0024`
+(ver «Cierre de huecos de §10» en §0), así que el gate de la Fase 6 ya no está condicionado
+por ellos.
 
 ---
 

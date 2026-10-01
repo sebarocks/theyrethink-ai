@@ -21,6 +21,7 @@ La API usa sesiones por cookie `httpOnly` y mismo origen. Todas las rutas `/api/
 | `chat` | propietario | propietario | Un hilo ajeno se oculta como `404` |
 | `agents/{id}/avatar` lectura | usuario | — | Agente/avatar inexistente devuelve `404` |
 | `agents/{id}/avatar` escritura | — | admin | Agente inexistente devuelve `404` |
+| `agents/{id}/memory` | usuario | usuario | Solo la memoria **del usuario autenticado** para ese agente (D10); agente inexistente ⇒ `404` |
 
 ## Respuestas de autorización
 

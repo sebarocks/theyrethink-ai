@@ -7,8 +7,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.dto import ChatChunk
-from app.api.deps import get_current_user
-from app.api.v1.chat import HEARTBEAT_SECONDS, _event, get_agent_service, router
+from app.api.deps import get_agent_service, get_current_user
+from app.api.v1.chat import HEARTBEAT_SECONDS, _event, router
 from app.db import get_session
 from app.main import app
 from app.models import Agent, Thread, User

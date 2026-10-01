@@ -304,3 +304,18 @@ async def test_delete_thread_removes_checkpoint_and_row_but_not_memory(
     snapshot = await service._chat_graph.aget_state({"configurable": {"thread_id": str(thread_id)}})
     assert snapshot.values == {}
     assert len(await service.read_memory(agent_id=1, user_id=1)) == 1
+
+
+async def test_forget_memory_clears_only_that_user(sessionmaker: async_sessionmaker) -> None:
+    """D10: olvidar memoria es explícito y no toca a otros usuarios."""
+    service = _service(sessionmaker)
+    await service.ensure_memory(
+        agent_id=1, user_id=1, facts=[MemoryFact(content="vive en Santiago")]
+    )
+    await service.ensure_memory(agent_id=1, user_id=2, facts=[MemoryFact(content="otra persona")])
+
+    removed = await service.forget_memory(agent_id=1, user_id=1)
+
+    assert removed == 1
+    assert await service.read_memory(agent_id=1, user_id=1) == []
+    assert len(await service.read_memory(agent_id=1, user_id=2)) == 1

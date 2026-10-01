@@ -292,6 +292,47 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "MemoryFactResponse": {
+        "description": "Hecho persistente sobre el usuario, tal como lo ve la UI.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "MemoryFactResponse",
+        "type": "object"
+      },
+      "MemoryResponse": {
+        "properties": {
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryFactResponse"
+            },
+            "title": "Facts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "facts"
+        ],
+        "title": "MemoryResponse",
+        "type": "object"
+      },
       "MessageResponse": {
         "description": "Mensaje del transcript (D16). Solo `user`/`assistant`.",
         "properties": {
@@ -1489,6 +1530,115 @@
         "summary": "Upload Avatar",
         "tags": [
           "agents"
+        ]
+      }
+    },
+    "/api/v1/agents/{agent_id}/memory": {
+      "delete": {
+        "description": "Olvida toda la memoria del usuario autenticado para ese agente (D10).",
+        "operationId": "forget_memory_api_v1_agents__agent_id__memory_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget Memory",
+        "tags": [
+          "memory"
+        ]
+      },
+      "get": {
+        "description": "Hechos que el agente recuerda del usuario autenticado, en orden de inserción.",
+        "operationId": "read_memory_api_v1_agents__agent_id__memory_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "theyrethink_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theyrethink Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Memory",
+        "tags": [
+          "memory"
         ]
       }
     },

@@ -105,6 +105,7 @@ function json(route: Route, body: unknown): Promise<void> {
 /** API falsa: la sesión nace anónima y solo existe tras `POST /auth/login`. */
 async function mockApi(page: import("playwright").Page): Promise<void> {
   let loggedIn = false;
+  let thread = { ...THREAD };
 
   await page.route("**/api/v1/**", (route) => {
     const request = route.request();
@@ -132,11 +133,22 @@ async function mockApi(page: import("playwright").Page): Promise<void> {
     if (path === "/api/v1/agents/1" && method === "GET") {
       return json(route, AGENT);
     }
+    if (path === "/api/v1/agents/1/memory") {
+      if (method === "DELETE") return route.fulfill({ status: 204 });
+      return json(route, {
+        facts: [{ content: "vive en Santiago", category: null }],
+      });
+    }
     if (path === "/api/v1/threads" && method === "GET") {
-      return json(route, [THREAD]);
+      return json(route, [thread]);
     }
     if (path === "/api/v1/threads" && method === "POST") {
-      return json(route, THREAD);
+      return json(route, thread);
+    }
+    if (path === "/api/v1/threads/7" && method === "PATCH") {
+      const body = request.postDataJSON() as { title?: string };
+      thread = { ...thread, title: body.title ?? thread.title };
+      return json(route, thread);
     }
     if (/^\/api\/v1\/threads\/\d+\/messages$/.test(path)) {
       if (method === "GET") return json(route, []);
@@ -186,6 +198,24 @@ Deno.test("smoke: login → agentes → chat con streaming → skins → logout"
       (await page.getByText("hola").count()) > 0,
       "falta el mensaje del usuario",
     );
+
+    // Memoria visible y olvidable (D10).
+    await page.getByRole("button", { name: "Memoria", exact: true }).click();
+    await page.getByText("vive en Santiago").waitFor();
+    await page.getByRole("button", { name: "Limpiar memoria" }).click();
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await page.getByText("Memoria eliminada correctamente").waitFor();
+
+    // Renombrado de hilo en línea.
+    await page.locator('button[aria-label="Renombrar Conversación"]').first()
+      .click();
+    await page.locator('input[aria-label="Renombrar Conversación"]').fill(
+      "Charla renombrada",
+    );
+    await page.locator('input[aria-label="Renombrar Conversación"]').press(
+      "Enter",
+    );
+    await page.getByText("Charla renombrada").waitFor();
 
     // Las otras dos skins montan el mismo `<Chat>`; Telegram añade sus atajos.
     for (const skin of ["whatsapp", "telegram"]) {

@@ -73,7 +73,7 @@
       />
     </label>
     <label class="flex flex-col gap-1 text-sm">
-      Email
+      {m.admin_emailLabel()}
       <input class={input} type="email" bind:value={email} />
     </label>
     <label class="flex flex-col gap-1 text-sm">

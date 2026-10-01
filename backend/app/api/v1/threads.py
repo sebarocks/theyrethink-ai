@@ -2,12 +2,12 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.service import AgentService
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, get_agent_service
 from app.db import get_session
 from app.models import Agent, Thread, User
 
@@ -45,10 +45,6 @@ def _user_id(user: User) -> int:
     if user.id is None:
         raise RuntimeError("El usuario autenticado no tiene id")
     return user.id
-
-
-def get_agent_service(request: Request) -> AgentService:
-    return request.app.state.agent_service
 
 
 @router.get("", response_model=list[ThreadResponse])

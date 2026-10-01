@@ -648,6 +648,15 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
   5. *Idempotencia:* *upsert* por clave natural; el `password_hash` de un usuario existente y
      los marcadores de consolidación de un hilo existente **no** se reescriben.
   Ver ADR `0023` y `docs/migration-rollback.md`.
+- **D21 — Cierre de los huecos de superficie de §10 (2026-10-01).**
+  1. *Memoria visible y olvidable:* `GET`/`DELETE /api/v1/agents/{id}/memory` operan sobre el
+     namespace del **usuario autenticado**; el chat expone un panel para verla y olvidarla.
+     Cumple D10 (borrar un hilo no toca la memoria; olvidar es explícito).
+  2. *Render de Markdown:* parser propio y **seguro**, sin `{@html}` ni dependencias nuevas,
+     compartido por `MessageBubble` y las tres skins (ADR `0024`).
+  3. *Landing pública:* hero, capacidades, flujo y catálogo con las claves i18n ya portadas,
+     más los términos en la misma página.
+  4. *Renombrado de hilo* desde la lista de hilos (endpoint ya existente).
 
 ### Abiertas
 

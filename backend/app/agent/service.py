@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.agent.consolidation import ConsolidationQueue
 from app.agent.dto import ChatChunk, ConsolidationJobDTO, MessageDTO, ThreadMetadata
-from app.agent.memory import MemoryFact, memory_namespace, read_facts, write_facts
+from app.agent.memory import MemoryFact, delete_facts, memory_namespace, read_facts, write_facts
 from app.agent.observability import log_event
 from app.models import Thread
 
@@ -187,6 +187,14 @@ class AgentService:
     async def read_memory(self, *, agent_id: int, user_id: int) -> list[MemoryFact]:
         """Hechos actuales del usuario para ese agente, en orden de insercion."""
         return await read_facts(self._store, memory_namespace(agent_id, user_id))
+
+    async def forget_memory(self, *, agent_id: int, user_id: int) -> int:
+        """Olvida todos los hechos del namespace `(agente, usuario)` (D10).
+
+        Devuelve cuantos hechos se borraron. Borrar un hilo no toca la memoria; esto es el
+        olvido explicito.
+        """
+        return await delete_facts(self._store, memory_namespace(agent_id, user_id))
 
     async def consolidate(self, job: ConsolidationJobDTO) -> list[MemoryFact]:
         """Consolida los turnos pendientes de un trabajo de la cola (D7).

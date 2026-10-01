@@ -7,6 +7,9 @@ const api = vi.hoisted(() => ({
   createThread: vi.fn(),
   deleteThread: vi.fn(),
   listMessages: vi.fn(),
+  renameThread: vi.fn(),
+  listMemory: vi.fn(),
+  clearMemory: vi.fn(),
   streamMessage: vi.fn(),
 }));
 
@@ -15,12 +18,19 @@ vi.mock("$lib/api/threads", () => ({
   createThread: api.createThread,
   deleteThread: api.deleteThread,
   listMessages: api.listMessages,
+  renameThread: api.renameThread,
+}));
+
+vi.mock("$lib/api/memory", () => ({
+  listMemory: api.listMemory,
+  clearMemory: api.clearMemory,
 }));
 
 vi.mock("$lib/api/chat", () => ({
   streamMessage: api.streamMessage,
 }));
 
+import { m } from "../../src/lib/paraglide/messages.js";
 import Chat from "../../src/lib/chat/Chat.svelte";
 
 const THREAD = {
@@ -208,4 +218,69 @@ test("no escribe tokens del hilo anterior tras cambiar de hilo", async () => {
   await tick();
 
   expect(target.textContent).not.toContain("A2");
+});
+
+function findButton(label: string): HTMLButtonElement | undefined {
+  return [...target.querySelectorAll("button")].find(
+    (button) => button.textContent?.trim() === label,
+  ) as HTMLButtonElement | undefined;
+}
+
+test("muestra y olvida la memoria del agente", async () => {
+  api.listThreads.mockResolvedValue([THREAD]);
+  api.listMessages.mockResolvedValue([]);
+  api.listMemory.mockResolvedValue([{
+    content: "vive en Santiago",
+    category: null,
+  }]);
+  api.clearMemory.mockResolvedValue(undefined);
+
+  render();
+  await vi.waitFor(() => expect(api.listThreads).toHaveBeenCalled());
+
+  findButton(m.chat_tabMemory())?.click();
+  await vi.waitFor(() =>
+    expect(target.textContent).toContain("vive en Santiago")
+  );
+  expect(api.listMemory).toHaveBeenCalledWith(1);
+
+  findButton(m.chat_clearMemory())?.click();
+  await tick();
+  findButton(m.common_confirm())?.click();
+
+  await vi.waitFor(() => expect(api.clearMemory).toHaveBeenCalledWith(1));
+  await vi.waitFor(() =>
+    expect(target.textContent).toContain(m.chat_memoryCleared())
+  );
+  expect(target.textContent).toContain(m.chat_noLearnedFacts());
+});
+
+test("renombra un hilo desde la lista", async () => {
+  api.listThreads.mockResolvedValue([THREAD]);
+  api.listMessages.mockResolvedValue([]);
+  api.renameThread.mockResolvedValue({ ...THREAD, title: "Nuevo título" });
+
+  render();
+  await vi.waitFor(() => expect(api.listThreads).toHaveBeenCalled());
+
+  const renameButton = target.querySelector(
+    `button[aria-label="${m.chat_renameChat()}"]`,
+  ) as HTMLButtonElement | null;
+  expect(renameButton).not.toBeNull();
+  renameButton!.click();
+  await tick();
+
+  const input = target.querySelector("input");
+  expect(input).not.toBeNull();
+  input!.value = "Nuevo título";
+  const inputEvent = document.createEvent("Event");
+  inputEvent.initEvent("input", true, false);
+  input!.dispatchEvent(inputEvent);
+  await tick();
+
+  (target.querySelector("form") as HTMLFormElement).requestSubmit();
+
+  await vi.waitFor(() =>
+    expect(api.renameThread).toHaveBeenCalledWith(THREAD.id, "Nuevo título")
+  );
 });

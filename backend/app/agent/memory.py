@@ -25,6 +25,7 @@ __all__ = [
     "ExtractedMemories",
     "MemoryFact",
     "deduplicate_facts",
+    "delete_facts",
     "fact_key",
     "injection_budget_tokens",
     "memory_namespace",
@@ -156,3 +157,11 @@ async def write_facts(
             {"content": fact.content, "category": fact.category},
         )
     return new_facts
+
+
+async def delete_facts(store: BaseStore, namespace: tuple[str, ...]) -> int:
+    """Borra todos los hechos del namespace y devuelve cuantos habia (D10, olvidar memoria)."""
+    items = await _search_all(store, namespace)
+    for item in items:
+        await store.adelete(namespace, item.key)
+    return len(items)

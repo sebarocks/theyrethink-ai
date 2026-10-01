@@ -20,6 +20,7 @@ from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.catalogs import router as catalogs_router
 from app.api.v1.chat import router as chat_router
+from app.api.v1.memory import router as memory_router
 from app.api.v1.threads import router as threads_router
 from app.api.v1.users import router as users_router
 from app.config import get_settings
@@ -114,6 +115,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(agents_router, prefix="/api/v1")
+    app.include_router(memory_router, prefix="/api/v1")
     app.include_router(catalogs_router, prefix="/api/v1")
     app.include_router(threads_router, prefix="/api/v1")
     app.include_router(chat_router, prefix="/api/v1")

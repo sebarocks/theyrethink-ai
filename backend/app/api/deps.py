@@ -3,10 +3,11 @@
 from datetime import UTC, datetime
 from hashlib import sha256
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.service import AgentService
 from app.db import get_session
 from app.models import Session, User
 
@@ -74,3 +75,11 @@ def ensure_user_id(user: User) -> int:
     if user.id is None:
         raise RuntimeError("El usuario autenticado no tiene id")
     return user.id
+
+
+def get_agent_service(request: Request) -> AgentService:
+    """Núcleo del agente montado en el `lifespan` (la costura, ADR `0006`)."""
+    return request.app.state.agent_service
+
+
+AgentServiceDep = Depends(get_agent_service)

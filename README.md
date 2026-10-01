@@ -60,9 +60,8 @@ ADR [`0023`](./docs/adr/0023-data-migration.md).
 
 ## Estado
 
-Fases 0–5 cerradas (2026-10-01): incluye las correcciones previas a la Fase 5 y la migración
-de datos. Queda pendiente la Fase 6 (endurecimiento y corte); la 7 es opcional. La paridad de
-**datos** está completa, pero la propuesta §10 mantiene dos huecos de **superficie** (memoria
-visible/olvidable y Markdown sin renderizar) que condicionan el corte; ver el plan §0.
+Fases 0–5 cerradas y los huecos de superficie de la propuesta §10 cerrados (2026-10-01):
+migración de datos, memoria visible/olvidable, Markdown saneado, landing pública y renombrado
+de hilo. Queda pendiente la Fase 6 (endurecimiento y corte); la 7 es opcional.
 El avance por fases está en [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md) §0.
 

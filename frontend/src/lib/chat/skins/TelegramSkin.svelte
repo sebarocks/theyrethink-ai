@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Message } from "$lib/api/threads";
   import Chat from "../Chat.svelte";
+  import Markdown from "../Markdown.svelte";
 
   let { agentId, agentName }: { agentId: number; agentName: string } = $props();
 
@@ -15,11 +16,15 @@
     <div class="flex" class:justify-end={message.role === "user"}>
       <div
         class={[
-          "max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm text-white",
+          "max-w-[80%] rounded-2xl px-3 py-2 text-sm text-white",
           message.role === "user" ? "bg-[#2b5278]" : "bg-[#182533]",
         ]}
       >
-        {message.text}
+        {#if message.role === "user"}
+          <p class="whitespace-pre-wrap">{message.text}</p>
+        {:else}
+          <Markdown text={message.text} />
+        {/if}
       </div>
     </div>
   {/snippet}

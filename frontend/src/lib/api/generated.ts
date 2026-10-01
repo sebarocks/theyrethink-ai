@@ -97,6 +97,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents/{agent_id}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Memory
+         * @description Hechos que el agente recuerda del usuario autenticado, en orden de inserción.
+         */
+        get: operations["read_memory_api_v1_agents__agent_id__memory_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Forget Memory
+         * @description Olvida toda la memoria del usuario autenticado para ese agente (D10).
+         */
+        delete: operations["forget_memory_api_v1_agents__agent_id__memory_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agents/{agent_id}/sources": {
         parameters: {
             query?: never;
@@ -525,6 +549,21 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /**
+         * MemoryFactResponse
+         * @description Hecho persistente sobre el usuario, tal como lo ve la UI.
+         */
+        MemoryFactResponse: {
+            /** Category */
+            category?: string | null;
+            /** Content */
+            content: string;
+        };
+        /** MemoryResponse */
+        MemoryResponse: {
+            /** Facts */
+            facts: components["schemas"]["MemoryFactResponse"][];
         };
         /**
          * MessageResponse
@@ -1057,6 +1096,70 @@ export interface operations {
         };
     };
     delete_avatar_api_v1_agents__agent_id__avatar_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_memory_api_v1_agents__agent_id__memory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                theyrethink_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_memory_api_v1_agents__agent_id__memory_delete: {
         parameters: {
             query?: never;
             header?: never;

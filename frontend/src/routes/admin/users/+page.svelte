@@ -121,7 +121,7 @@
         >
           <tr>
             <th class="py-2 pr-3">{m.admin_usernameLabel()}</th>
-            <th class="py-2 pr-3">Email</th>
+            <th class="py-2 pr-3">{m.admin_emailLabel()}</th>
             <th class="py-2 pr-3">{m.admin_colStatus()}</th>
             <th class="py-2 pr-3">{m.admin_colRegistrationDate()}</th>
             <th class="py-2">{m.common_actions()}</th>
