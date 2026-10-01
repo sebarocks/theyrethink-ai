@@ -169,7 +169,13 @@ async function mockApi(page: import("playwright").Page): Promise<void> {
 Deno.test("smoke: login → agentes → chat con streaming → skins → logout", async () => {
   const server = await startServer();
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  // El runner de CI trae un navegador en `en-US` (en local suele ser `es`). Se fija el idioma
+  // del *navegador* a `en-US` para no depender de la máquina, y el de la *app* en el script de
+  // abajo, para que las aserciones de texto sean deterministas.
+  const page = await browser.newPage({ locale: "en-US" });
+  // La app resuelve el idioma con `localStorage preferredLanguage baseLocale`; se fija la
+  // locale base (`es`) antes de cargar nada para que los textos no dependan del navegador.
+  await page.addInitScript('localStorage.setItem("PARAGLIDE_LOCALE", "es");');
   try {
     await mockApi(page);
 

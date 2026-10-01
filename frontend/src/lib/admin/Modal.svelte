@@ -7,18 +7,28 @@
     onclose,
     children,
   }: { title: string; onclose: () => void; children: Snippet } = $props();
+
+  function onBackdrop(event: MouseEvent) {
+    // Solo cierra si el clic fue en el fondo, no dentro del diálogo.
+    if (event.target === event.currentTarget) onclose();
+  }
+
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") onclose();
+  }
 </script>
 
 <div
   class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
   role="presentation"
-  onclick={onclose}
+  onclick={onBackdrop}
+  onkeydown={onKeydown}
 >
   <div
     class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900"
     role="dialog"
     aria-modal="true"
-    onclick={(event) => event.stopPropagation()}
+    tabindex="-1"
   >
     <header class="mb-4 flex items-center justify-between">
       <h2 class="text-lg font-bold">{title}</h2>
