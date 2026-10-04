@@ -24,6 +24,7 @@ frontend/project.inlang/cache/
 
 # Datos locales
 .pgdata/
+backups/
 
 # Editores y sistema
 .idea/

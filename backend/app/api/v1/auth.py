@@ -3,24 +3,39 @@
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Response, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Request, Response, status
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import SESSION_COOKIE, CurrentUser, auth_error, hash_session_token
+from app.api.deps import (
+    SESSION_COOKIE,
+    AuthRateLimit,
+    CurrentUser,
+    auth_error,
+    hash_session_token,
+)
+from app.config import get_settings
 from app.db import get_session
 from app.models import Session, User
 from app.security import hash_password, needs_rehash, verify_password
+from app.security.policy import password_policy_error
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-SESSION_DAYS = 30
 
 
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=64)
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def _check_password_policy(self) -> "RegisterRequest":
+        """Aplica D24 (longitud configurable + no reutilizar la identidad)."""
+        reason = password_policy_error(self.password, username=self.username, email=self.email)
+        if reason:
+            raise ValueError(reason)
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -45,12 +60,18 @@ class UserResponse(BaseModel):
 
 
 async def _create_session(response: Response, user: User, db: AsyncSession) -> None:
+    """Emite una sesión nueva y rota la cookie (anti-fijación, D24/ADR `0027`).
+
+    El token es CSPRNG y se genera en cada login: el cliente nunca elige el identificador de
+    sesión. Los flags de la cookie salen de configuración, con `Secure` activo por defecto.
+    """
+    settings = get_settings()
     token = secrets.token_urlsafe(32)
     db.add(
         Session(
             user_id=user.id,
             token_hash=hash_session_token(token),
-            expires_at=datetime.now(UTC) + timedelta(days=SESSION_DAYS),
+            expires_at=datetime.now(UTC) + timedelta(days=settings.session_days),
         )
     )
     await db.commit()
@@ -58,9 +79,10 @@ async def _create_session(response: Response, user: User, db: AsyncSession) -> N
         SESSION_COOKIE,
         token,
         httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=SESSION_DAYS * 86400,
+        secure=settings.session_cookie_secure,
+        samesite=settings.session_cookie_samesite,
+        domain=settings.session_cookie_domain,
+        max_age=settings.session_days * 86400,
     )
 
 
@@ -68,6 +90,7 @@ async def _create_session(response: Response, user: User, db: AsyncSession) -> N
 async def register(
     payload: RegisterRequest,
     response: Response,
+    _rate: None = AuthRateLimit,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> User:
     """Registra un usuario normal y crea su sesión."""
@@ -96,6 +119,7 @@ async def register(
 async def login(
     payload: LoginRequest,
     response: Response,
+    _rate: None = AuthRateLimit,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> User:
     """Autentica por nombre de usuario y crea una sesión."""
@@ -137,6 +161,7 @@ async def me(user: User = CurrentUser) -> User:
 @router.patch("/me", response_model=UserResponse)
 async def update_me(
     payload: ProfileUpdate,
+    request: Request,
     user: User = CurrentUser,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> User:
@@ -163,11 +188,31 @@ async def update_me(
                 "La contraseña actual no es válida.",
                 status.HTTP_400_BAD_REQUEST,
             )
+        reason = password_policy_error(
+            payload.new_password,
+            username=payload.username or user.username,
+            email=payload.email or user.email,
+        )
+        if reason:
+            raise auth_error("weak_password", reason, status.HTTP_422_UNPROCESSABLE_CONTENT)
         user.password_hash = hash_password(payload.new_password)
     if payload.username is not None:
         user.username = payload.username
     if payload.email is not None:
         user.email = payload.email
+    if payload.new_password is not None:
+        # Anti-fijación (D24): al cambiar la contraseña se cierran las demás sesiones, no la
+        # que hace el cambio.
+        current_hash = hash_session_token(request.cookies.get(SESSION_COOKIE, ""))
+        sessions = await db.execute(
+            select(Session).where(
+                Session.user_id == user.id,
+                Session.revoked_at.is_(None),
+                Session.token_hash != current_hash,
+            )
+        )
+        for session in sessions.scalars():
+            session.revoked_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(user)
     return user

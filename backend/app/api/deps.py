@@ -8,8 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.service import AgentService
+from app.config import get_settings
 from app.db import get_session
 from app.models import Session, User
+from app.security.rate_limit import RateLimitExceeded, enforce_rate_limit
 
 SESSION_COOKIE = "theyrethink_session"
 
@@ -83,3 +85,66 @@ def get_agent_service(request: Request) -> AgentService:
 
 
 AgentServiceDep = Depends(get_agent_service)
+
+
+def _client_ip(request: Request) -> str:
+    """IP del cliente. No se lee `X-Forwarded-For` salvo que `uvicorn` esté configurado para
+    confiar en el proxy (`FORWARDED_ALLOW_IPS`): si no, la cabecera es falsificable y el límite
+    por IP se podría eludir (ADR `0026`)."""
+    return request.client.host if request.client else "unknown"
+
+
+def _too_many_requests(exc: RateLimitExceeded) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={
+            "error": "rate_limit_exceeded",
+            "code": "too_many_requests",
+            "detail": "Demasiadas peticiones. Inténtalo de nuevo más tarde.",
+        },
+        headers={"Retry-After": str(exc.retry_after)},
+    )
+
+
+async def auth_rate_limit(
+    request: Request,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> None:
+    """Limita por IP los intentos de `/auth/login` y `/auth/register` (D23, ADR `0026`)."""
+    settings = get_settings()
+    if not settings.rate_limit_enabled:
+        return
+    try:
+        await enforce_rate_limit(
+            db,
+            scope="auth",
+            key=_client_ip(request),
+            limit=settings.rate_limit_auth_attempts,
+            window_seconds=settings.rate_limit_auth_window_seconds,
+        )
+    except RateLimitExceeded as exc:
+        raise _too_many_requests(exc) from exc
+
+
+async def chat_rate_limit(
+    user: User = CurrentUser,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> None:
+    """Limita por usuario el envío de mensajes de chat (D23, ADR `0026`)."""
+    settings = get_settings()
+    if not settings.rate_limit_enabled:
+        return
+    try:
+        await enforce_rate_limit(
+            db,
+            scope="chat",
+            key=str(ensure_user_id(user)),
+            limit=settings.rate_limit_chat_attempts,
+            window_seconds=settings.rate_limit_chat_window_seconds,
+        )
+    except RateLimitExceeded as exc:
+        raise _too_many_requests(exc) from exc
+
+
+AuthRateLimit = Depends(auth_rate_limit)
+ChatRateLimit = Depends(chat_rate_limit)

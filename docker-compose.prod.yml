@@ -1,0 +1,56 @@
+# Escenario de producción en un solo host (D22, ADR 0025). NO es el compose de desarrollo:
+# aquel solo levanta Postgres para las pruebas locales.
+#
+# Uso:
+#   1. Copia `backend/.env.example` a `.env` **en la raíz** y define SECRET_KEY, DATABASE_URL,
+#      POSTGRES_PASSWORD, ADMIN_PASSWORD y los límites de sesión. `.env` nunca se versiona.
+#   2. Migrar (paso de release, antes de arrancar o actualizar la API):
+#        docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+#   3. Arrancar:
+#        docker compose -f docker-compose.prod.yml up -d --build
+#
+# El TLS lo termina un proxy de confianza delante de `api` (ver `docs/operations.md`).
+
+name: theyrethink-ai-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-theyrethink}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-theyrethink}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-theyrethink} -d ${POSTGRES_DB:-theyrethink}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: theyrethink-ai:${TAG:-latest}
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      # El runtime del contenedor usa estos valores; `.env` aporta el resto.
+      AVATAR_STORAGE_DIR: /app/backend/var/avatars
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    volumes:
+      # Estado durable fuera del contenedor (D22): avatares subidos (ADR 0017).
+      - avatars:/app/backend/var/avatars
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  avatars:

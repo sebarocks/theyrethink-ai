@@ -23,6 +23,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.store.base import BaseStore
 
+from app import metrics
 from app.agent.dto import AgentContext
 from app.agent.memory import (
     ExtractedMemories,
@@ -82,6 +83,24 @@ def _coerce_facts(result: Any) -> list[MemoryFact]:
     raise TypeError(f"salida del extractor no soportada: {type(result)!r}")
 
 
+def _cached_tokens(response: BaseMessage) -> int | None:
+    """Tokens de prompt servidos desde caché, si el proveedor lo publica (*best-effort*).
+
+    No todos los proveedores OpenAI-compatibles devuelven `usage_metadata`; su ausencia no es un
+    error, solo significa que no se puede estimar la tasa de acierto (D25, ADR `0028`).
+    """
+    usage = getattr(response, "usage_metadata", None)
+    if not isinstance(usage, dict):
+        return None
+    details = usage.get("input_token_details")
+    if not isinstance(details, dict):
+        return None
+    value = details.get("cache_read")
+    if isinstance(value, int) and value >= 0:
+        return value
+    return None
+
+
 def build_chat_graph(
     *,
     llm: BaseChatModel,
@@ -105,12 +124,14 @@ def build_chat_graph(
     async def respond(state: ChatState) -> dict[str, list[BaseMessage]]:
         namespace = memory_namespace(state["agent_id"], state["user_id"])
         facts = await read_facts(store, namespace)
+        budget = injection_budget_tokens(context_tokens)
         injectable = select_injectable_facts(
             facts,
-            budget_tokens=injection_budget_tokens(context_tokens),
+            budget_tokens=budget,
             count_tokens=count_tokens,
         )
         memory_block = build_memory_block([fact.content for fact in injectable])
+        injected_tokens = sum(count_tokens(fact.content) for fact in injectable)
 
         messages = list(state["messages"])
         # Orden canonico: [system][historial][memoria][mensaje nuevo] (D7).
@@ -119,14 +140,27 @@ def build_chat_graph(
             prompt.append(SystemMessage(content=memory_block))
         prompt.append(messages[-1])
 
+        # Metrica de D7: tokens inyectados frente al techo de 0.4 x contexto (ADR 0028).
+        metrics.set_value("memory_injection_budget_tokens", budget)
+        metrics.set_value("memory_injected_tokens_last", injected_tokens)
+        metrics.increment("memory_injected_tokens_total", injected_tokens)
+        metrics.increment("memory_facts_injected_total", len(injectable))
         log_event(
             "chat.respond",
             thread_id=state.get("thread_id"),
             agent_id=state.get("agent_id"),
             user_id=state.get("user_id"),
             injected_facts=len(injectable),
+            injected_tokens=injected_tokens,
+            budget_tokens=budget,
         )
         response = await llm.ainvoke(prompt)
+        metrics.increment("chat_turns_total")
+
+        cached_tokens = _cached_tokens(response)
+        if cached_tokens is not None:
+            metrics.increment("prompt_cache_read_tokens_total", cached_tokens)
+            log_event("chat.cache_read", cached_tokens=cached_tokens)
         return {"messages": [response]}
 
     graph = StateGraph(ChatState)

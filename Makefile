@@ -6,7 +6,8 @@ SHELL := /bin/sh
 BACKEND := backend
 FRONTEND := frontend
 
-.PHONY: help db dev test lint fmt migrate seed openapi check \
+.PHONY: help db dev test lint fmt migrate migrate-check seed openapi check \
+	backup restore smoke \
 	frontend-dev frontend-build frontend-check frontend-test frontend-lint frontend-fmt
 
 help:
@@ -17,7 +18,11 @@ help:
 	@echo "  lint           Formato (check), lint y contratos de import del backend"
 	@echo "  fmt            Aplica formato y correcciones automáticas al backend"
 	@echo "  migrate        Aplica las migraciones de Alembic"
+	@echo "  migrate-check  Aplica migraciones y comprueba que no hay deriva"
 	@echo "  seed           Siembra los datos canónicos"
+	@echo "  backup         Backup lógico de Postgres (Fase 6)"
+	@echo "  restore        Restaura un backup: make restore DUMP=backups/x.dump"
+	@echo "  smoke          Smoke de carga: make smoke BASE_URL=https://..."
 	@echo "  openapi        Regenera el cliente TypeScript desde OpenAPI"
 	@echo "  frontend-dev   Levanta el frontend (Vite) en modo desarrollo"
 	@echo "  frontend-build Build de la SPA"
@@ -47,8 +52,21 @@ fmt:
 migrate:
 	cd $(BACKEND) && uv run alembic upgrade head
 
+migrate-check:
+	cd $(BACKEND) && uv run alembic upgrade head
+	cd $(BACKEND) && uv run alembic check
+
 seed:
 	cd $(BACKEND) && uv run python -m app.seed
+
+backup:
+	./backend/scripts/backup_postgres.sh
+
+restore:
+	./backend/scripts/restore_postgres.sh $(DUMP)
+
+smoke:
+	cd $(BACKEND) && uv run python -m scripts.smoke_load --base-url $(BASE_URL)
 
 openapi:
 	cd $(BACKEND) && uv run python -m scripts.export_openapi

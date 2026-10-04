@@ -23,6 +23,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    PrimaryKeyConstraint,
     String,
     Text,
     func,
@@ -35,6 +36,7 @@ __all__ = [
     "AgentSource",
     "ConsolidationJob",
     "KnowledgeSource",
+    "RateLimitHit",
     "Role",
     "Session",
     "Thread",
@@ -266,3 +268,22 @@ class ConsolidationJob(SQLModel, table=True):
         default=0, sa_column=Column(Integer, nullable=False, server_default=text("0"))
     )
     last_error: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+
+
+class RateLimitHit(SQLModel, table=True):
+    """Contador de ventana fija del límite de peticiones (D23, ADR `0026`).
+
+    Tabla **operativa**, no de dominio: no guarda conversación, sesiones ni memoria, así que no
+    roza AGENTS.md §3.3. La clave primaria compuesta `(scope, key, window_start)` es lo que hace
+    posible el *upsert* atómico que comparte el contador entre todos los workers.
+    """
+
+    __tablename__ = "rate_limit_hits"
+    __table_args__ = (
+        PrimaryKeyConstraint("scope", "key", "window_start", name="pk_rate_limit_hits"),
+    )
+
+    scope: str = Field(sa_column=Column(String(32), nullable=False))
+    key: str = Field(sa_column=Column(String(128), nullable=False))
+    window_start: int = Field(sa_column=Column(Integer, nullable=False))
+    count: int = Field(sa_column=Column(Integer, nullable=False, server_default=text("0")))

@@ -57,6 +57,12 @@ jobs:
       - name: Tests
         run: uv run pytest
 
+      # Gate de la Fase 6: el esquema modelado y las migraciones no pueden divergir.
+      - name: Migraciones sin deriva
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
   # Job de frontend (Fase 4). Regla del proyecto (AGENTS.md §2): NUNCA
   # `actions/setup-node`; el frontend usa Deno.
   frontend:
@@ -114,3 +120,14 @@ jobs:
 
       - name: E2E (Playwright)
         run: deno task test:e2e
+
+  # Fase 6 (D22, ADR 0025): la imagen de producción tiene que construir. Se usa `docker build`
+  # directo en lugar de una action de terceros para no depender de tags móviles.
+  image:
+    name: Imagen de producción (Dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Construir la imagen
+        run: docker build -t theyrethink-ai:ci .

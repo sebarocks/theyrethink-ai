@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.service import AgentService
-from app.api.deps import CurrentUser, ensure_user_id, get_agent_service
+from app.api.deps import ChatRateLimit, CurrentUser, ensure_user_id, get_agent_service
 from app.db import get_session
 from app.models import Thread, User
 
@@ -64,6 +64,7 @@ async def list_messages(
 async def send_message(
     thread_id: int,
     payload: ChatRequest,
+    _rate: None = ChatRateLimit,
     user: User = CurrentUser,
     db: AsyncSession = Depends(get_session),  # noqa: B008
     service: AgentService = Depends(get_agent_service),  # noqa: B008

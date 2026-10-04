@@ -657,6 +657,64 @@ Debate multi-agente (el grafo ya lo soporta), tool calling, RAG denso/disperso s
   3. *Landing pública:* hero, capacidades, flujo y catálogo con las claves i18n ya portadas,
      más los términos en la misma página.
   4. *Renombrado de hilo* desde la lista de hilos (endpoint ya existente).
+- **D22 — Despliegue de producción → imagen de contenedor única y migraciones como paso de
+  release (Fase 6).**
+  1. *Empaquetado:* `Dockerfile` multi-etapa en la raíz. El *builder* construye la SPA con Deno
+     (`deno task build`, ADR `0018`) e instala las dependencias Python con `uv sync --locked`;
+     la imagen final solo lleva el runtime de Python, el backend y el build estático, **sin
+     Node ni Deno** (adapter-static, D8).
+  2. *Servidor:* `uvicorn` con `WEB_CONCURRENCY` workers (por defecto, el número de CPUs),
+     `debug` siempre apagado (ya forzado por `Settings`) y apagado ordenado ante SIGTERM. El
+     worker de consolidación vive en cada proceso y compite por la cola con `SKIP LOCKED` +
+     *lease* (D14, ADR `0022`): N workers no duplican trabajo.
+  3. *Orden de migraciones:* `alembic upgrade head` **antes** de arrancar los workers, como paso
+     de release en un contenedor de un solo uso. El `setup()` de LangGraph es idempotente y
+     ocurre en el `lifespan` (D11, hueco 6 de §4); la app nunca migra en el *import*.
+  4. *Salud y señales:* `/healthz` para *liveness* (no toca dependencias) y `/readyz` (toca
+     Postgres) para *readiness*, que es lo que debe usar el balanceador; el `HEALTHCHECK` de la
+     imagen usa `/healthz`.
+  5. *Volúmenes:* datos de Postgres, `AVATAR_STORAGE_DIR` (D12, ADR `0017`) y los *backups*.
+     Nada de estado durable dentro del contenedor.
+  6. *Configuración:* solo variables de entorno; `SECRET_KEY` obligatoria y sin valor por
+     defecto.
+  Ver ADR `0025` y `docs/operations.md`.
+- **D23 — Límite de peticiones → ventana fija contada en Postgres (Fase 6).** Sin
+  infraestructura nueva (coherente con D14: la cola ya vive en Postgres): tabla
+  `rate_limit_hits(scope, key, window_start, count)` con *upsert* atómico
+  (`INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING count`). El contador es **compartido por
+  todos los workers**, así que el límite no se multiplica por el número de procesos —que es lo
+  que pasaría con memoria local—. Se aplica como dependencia de FastAPI: `/auth/login` y
+  `/auth/register` por IP de cliente, y el envío de chat por usuario. Superarlo ⇒ `429` con el
+  envelope estable. Límites y ventanas configurables por entorno; las ventanas vencidas se
+  purgan de forma perezosa. Ver ADR `0026`.
+- **D24 — Endurecimiento de sesión, CSRF y contraseña (Fase 6).**
+  1. *Cookie:* los flags (`HttpOnly`, `Secure`, `SameSite`, `domain`, días de vida) salen de
+     configuración; `Secure` es `true` por defecto y solo se apaga de forma explícita en
+     desarrollo. El valor por defecto nunca es inseguro.
+  2. *Anti-fijación:* el token es CSPRNG, se emite solo tras autenticar y se rota en cada
+     login; cambiar la contraseña (`PATCH /auth/me`) revoca las demás sesiones del usuario.
+     El logout ya revocaba todas las activas.
+  3. *CSRF:* `SameSite=Lax` es la primera defensa; encima, un middleware comprueba `Origin`
+     (o `Referer`) contra el mismo origen en métodos no seguros. Sin cabecera (clientes no
+     navegador, tests) se permite y se registra.
+  4. *Contraseña:* longitud mínima configurable (`PASSWORD_MIN_LENGTH`, por defecto 8 para no
+     romper cuentas existentes), máximo 128, y se rechaza si coincide con el `username` o con
+     la parte local del `email`. Argon2 con los parámetros por defecto de `argon2-cffi`
+     (RFC 9106) y re-hash perezoso ya existente.
+  5. *Límite de intentos:* D23.
+  Ver ADR `0027`.
+- **D25 — Observabilidad de producción: logs JSON, métrica de tokens y `/metrics` (Fase 6).**
+  1. *Logging:* formato JSON en producción (`LOG_FORMAT=json`) con `request_id` de correlación
+     (cabecera `X-Request-Id` o generado) y texto legible en desarrollo. El logger de eventos
+     del núcleo (`log_event`) no cambia: solo el formateador y el contexto.
+  2. *Métrica D7:* cada turno registra los **tokens de memoria inyectados** frente al techo
+     (`0.4 × contexto`) y el número de hechos; se acumulan en un registro del proceso.
+  3. *Caché:* se registra `cached_tokens` del proveedor cuando la respuesta lo publica
+     (*best-effort*: no todos los OpenAI-compatibles lo devuelven), para poder estimar la tasa
+     de acierto del prefijo `[system][historial]`.
+  4. *Exposición:* `GET /metrics` (formato Prometheus) solo se sirve si `METRICS_ENABLED=true`
+     y, cuando `METRICS_TOKEN` está definido, exige `Authorization: Bearer`; por defecto está
+     desactivado. Ver ADR `0028`.
 
 ### Abiertas
 

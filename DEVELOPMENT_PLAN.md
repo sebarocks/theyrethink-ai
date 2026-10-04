@@ -35,7 +35,7 @@
 | 3 | API | ✅ cerrada | ✅ |
 | 4 | Frontend | ✅ cerrada | ✅ |
 | 5 | Migración de datos | ✅ cerrada | ✅ (con salvedad §10) |
-| 6 | Endurecimiento y corte | ⬜ pendiente | ⬜ |
+| 6 | Endurecimiento y corte | 🔵 en curso | 🔶 implementado; falta staging y archivo |
 | 7 | Extensiones | ⬜ opcional | ⬜ |
 
 Leyenda: ⬜ pendiente · 🔵 en curso · ✅ cerrada.
@@ -80,6 +80,37 @@ gate de la Fase 6. Se cierran aquí (decisión D21):
 
 Siguen fuera de alcance (no bloquean el corte, anotados para no perderlos): página de estado
 de configuración del LLM en admin y desglose por agente en el dashboard.
+
+### Fase 6 — avance (2026-10-02)
+
+Decisiones **D22–D25** registradas en la propuesta §14, con ADR `0025` (despliegue), `0026`
+(límite de peticiones), `0027` (sesión, CSRF y contraseña) y `0028` (observabilidad).
+
+| Bloque | Entregable | Evidencia |
+|---|---|---|
+| Despliegue (D22) | `Dockerfile` multi-etapa, `docker-compose.prod.yml`, `backend/scripts/serve.sh`, orden de migraciones y `docs/operations.md` | `docker build` OK; imagen y uvicorn sirven `/healthz`, `/readyz` y `/metrics` |
+| Seguridad (D23/D24) | migración `0005`, ventana fija en Postgres, límites en login/registro/chat, cookie configurable, anti-fijación, CSRF por `Origin`, política de contraseña | `tests/test_phase6_security.py`; se corrigió que el handler de errores perdía cabeceras (`Retry-After`) |
+| Backups (D22) | `backup_postgres.sh`, `restore_postgres.sh`, `docs/backup-restore.md` | Ensayo real: 16/16 tablas y conteos idénticos (`agents=19`, `roles=23`, `checkpoints=24`, `store=2`) |
+| Observabilidad (D25) | logs JSON con `request_id`, registro de métricas y `/metrics` opcional | `tests/test_observability.py`; métrica de D7 (tokens inyectados vs. techo) por turno |
+| Ensayo de staging (Fase 5 + §11) | base limpia + **dump real** (`agentes.db`) migrado, idempotencia, backup/restore y API contra la base migrada | `--dry-run` y dos corridas (2.ª: 0 creados, 0 hilos nuevos); restore con conteos idénticos; `register` 201, `GET /agents` devuelve los 8 agentes migrados, `Origin` ajeno 403, contador del límite persistido en staging, 16 tablas (dominio + LangGraph) |
+
+**Verificado el 2026-10-02:** `ruff format --check` y `ruff check` limpios, `lint-imports`
+(2 kept), `pytest` **223 passed**, `alembic check` sin deriva (head `0005`), frontend
+`deno fmt`/`deno lint`/`deno task check` (0 errores)/`deno task test` (12)/`test:unit` (12)/
+`test:e2e` (1) verdes, y la imagen de producción sirviendo `/healthz`, `/readyz`, la SPA en `/`,
+`401` sin sesión en la API y `/metrics` con logs JSON, y `HEALTHCHECK` en `healthy`. Smoke de
+carga: 60 peticiones, 6 concurrentes, 0 errores.
+
+**Pendiente — no es código, y no todo está en nuestra mano:**
+
+1. **Despliegue en el host real de destino** (TLS, proxy, usuarios reales) y ensayo del runbook
+   allí. El ensayo de staging con el dump real ya está hecho en local y es la evidencia del gate.
+2. **Archivar `theythink-ai`: dependencia externa bloqueada.** El repositorio es de
+   `bemtorres/theythink-ai` y el equipo solo tiene permisos en `theyrethink-ai`; el tag y el
+   archivado tienen que hacerlos su propietario. No es una tarea del equipo ni del agente.
+
+Por eso la fase sigue **en curso**: su DoD pide verificación en el entorno de destino, no solo
+implementación.
 
 
 ---
@@ -166,6 +197,10 @@ que cada una bloquea: **no se empieza una fase con su decisión abierta.**
 | D19 | Edición del perfil propio (`PATCH /auth/me`) | ✅ resuelta | — |
 | D20 | Migración de datos desde `agentes.db` (replay, hash heredado, memoria, idempotencia) | ✅ resuelta | — |
 | D21 | Cierre de huecos de §10 (memoria visible/olvidable, Markdown, landing, renombrado) | ✅ resuelta | — |
+| D22 | Despliegue: imagen única, workers, orden de migraciones, volúmenes | ✅ resuelta | Fase 6 |
+| D23 | Límite de peticiones por ventana fija en Postgres | ✅ resuelta | Fase 6 |
+| D24 | Cookie configurable, anti-fijación, CSRF por `Origin` y política de contraseña | ✅ resuelta | Fase 6 |
+| D25 | Logs JSON, métrica de tokens inyectados y `/metrics` opcional | ✅ resuelta | Fase 6 |
 
 Cuando una decisión se implementa, se convierte en ADR en `docs/adr/`
 (`0000-template.md` es la plantilla).
@@ -640,23 +675,36 @@ por ellos.
 
 **Gate de entrada:** Fase 5 cerrada en un entorno de staging con datos reales migrados.
 
-**Tareas**
+**Tareas** — implementadas el 2026-10-02 (D22–D25); las de staging y archivo quedan abiertas.
 
-- [ ] CSRF, CORS explícito (o innecesario por D4), flags de cookie
-      (`HttpOnly`/`Secure`/`SameSite`), anti-fijación de sesión en login, parámetros de
-      Argon2 y política de contraseña.
-- [ ] Rate limiting en `/login` y en chat; límites y saneado de subidas.
-- [ ] Servidor de producción con workers, sin `debug`, healthchecks y manejo de señales.
-- [ ] Backups de Postgres y persistencia/respaldo de Redis (D7) + **ensayo de restore**;
-      orden de migraciones en el deploy.
-- [ ] Almacenamiento de avatares (D12): volumen propio fuera del estático, límites de tamaño
-      y tipo, sin SVG.
-- [ ] Logging estructurado, métricas de uso/tokens, alertas básicas; LangSmith opcional.
-- [ ] Runbook de corte + rollback; archivar `theythink-ai` (tag/read-only).
-- [ ] Smoke de carga mínimo en producción.
+- [x] CSRF por `Origin` (CORS innecesario por D4), flags de cookie configurables
+      (`HttpOnly`/`Secure`/`SameSite`), anti-fijación de sesión en login y cambio de contraseña,
+      parámetros de Argon2 y política de contraseña. ADR `0027`.
+- [x] Rate limiting en `/login`, `/register` y chat; límites y saneado de subidas (estas ya
+      cubiertas en la Fase 3). ADR `0026`.
+- [x] Servidor de producción con workers, sin `debug`, healthchecks y apagado ordenado por
+      señal. ADR `0025`.
+- [x] Backups de Postgres y de avatares + **ensayo de restore**; orden de migraciones en el
+      deploy. ADR `0025`. Nota: **no hay Redis** —la cola de consolidación vive en Postgres
+      (D14)—, así que la mención anterior del plan era un residuo.
+- [x] Almacenamiento de avatares (D12): volumen propio fuera del estático, límites de tamaño y
+      tipo, sin SVG. Volumen declarado en `docker-compose.prod.yml`.
+- [x] Logging estructurado, métrica de tokens inyectados frente al techo de D7 y `/metrics`
+      opcional; LangSmith sigue opcional. ADR `0028`.
+- [x] Smoke de carga mínimo (`backend/scripts/smoke_load.py`).
+- [x] Runbook de corte + rollback redactado (`docs/runbook-cutover.md`).
+- [x] **Ensayo de staging en local con el dump real:** migración (dry-run + real + 2.ª corrida
+      idempotente), backup/restore con conteos idénticos y checklist §11 verificado con `curl`
+      contra la API apuntando a la base migrada.
+- [ ] **Despliegue en el host real** (TLS, proxy, usuarios) y ensayo del runbook allí.
+- [ ] **Archivar `theythink-ai`** — **dependencia externa bloqueada**: el repo es de
+      `bemtorres/theythink-ai` y el equipo solo tiene permisos en `theyrethink-ai`; el
+      tag + archivado los hace su propietario.
 
-**DoD:** checklist de la propuesta §11 completa y verificada (tests/curl, no por inspección);
-ensayo de restore exitoso; runbook ensayado; producción sin secretos por defecto.
+**DoD:** **parcial**. Checklist §11 implementado y cubierto por tests, y verificado en ejecución
+sobre una base migrada con el dump real; ensayo de restore exitoso; runbook escrito pero **no
+ensayado en el host de destino**. Falta el despliegue real (y el archivado, que depende del
+propietario del repo antiguo), que es lo que cierra la fase.
 
 ---
 
